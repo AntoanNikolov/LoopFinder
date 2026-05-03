@@ -79,15 +79,15 @@ set(CMAKE_MAKEFILE_OUTPUTS
 # Byproducts of CMake generate step:
 set(CMAKE_MAKEFILE_PRODUCTS
   "LoopFinder_artefacts/JuceLibraryCode/Release/Defs.txt"
-  "LoopFinder_artefacts/Release/Standalone/LoopFinder.app/Contents/MacOS"
-  "LoopFinder_artefacts/Release/Standalone/LoopFinder.app/Contents/Info.plist"
-  "LoopFinder_artefacts/Release/Standalone/LoopFinder.app/Contents/Info.plist"
   "LoopFinder_artefacts/Release/AU/LoopFinder.component/Contents/MacOS"
   "LoopFinder_artefacts/Release/AU/LoopFinder.component/Contents/Info.plist"
   "LoopFinder_artefacts/Release/AU/LoopFinder.component/Contents/Info.plist"
   "LoopFinder_artefacts/Release/VST3/LoopFinder.vst3/Contents/MacOS"
   "LoopFinder_artefacts/Release/VST3/LoopFinder.vst3/Contents/Info.plist"
   "LoopFinder_artefacts/Release/VST3/LoopFinder.vst3/Contents/Info.plist"
+  "LoopFinder_artefacts/Release/Standalone/LoopFinder.app/Contents/MacOS"
+  "LoopFinder_artefacts/Release/Standalone/LoopFinder.app/Contents/Info.plist"
+  "LoopFinder_artefacts/Release/Standalone/LoopFinder.app/Contents/Info.plist"
   "CMakeFiles/CMakeDirectoryInformation.cmake"
   "JUCE/JUCEConfigVersion.cmake"
   "JUCE/JUCEConfig.cmake"

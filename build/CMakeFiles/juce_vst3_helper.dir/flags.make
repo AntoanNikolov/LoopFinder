@@ -6,5 +6,7 @@ CXX_DEFINES = -DJUCE_GLOBAL_MODULE_SETTINGS_INCLUDED=1 -DNDEBUG=1 -D_NDEBUG=1
 
 CXX_INCLUDES = -I"/Users/antoan/Documents/Plugin Codin/LoopFinder/JUCE/modules/juce_audio_processors/format_types/VST3_SDK" -I"/Users/antoan/Documents/Plugin Codin/LoopFinder/JUCE/modules" -F/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks
 
-CXX_FLAGS = -O3 -DNDEBUG -std=c++17 -fobjc-arc -O3
+CXX_FLAGSarm64 = -O3 -DNDEBUG -std=c++17 -arch arm64 -fobjc-arc -O3
+
+CXX_FLAGS = -O3 -DNDEBUG -std=c++17 -arch arm64 -fobjc-arc -O3
 

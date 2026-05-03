@@ -26,7 +26,7 @@ set "INSTALLED=0"
 echo Searching for built plugins in %BUILD_DIR% ...
 
 REM ---- VST3 ----
-for /r "%BUILD_DIR%" %%P in (LoopFinder.vst3) do (
+for /r /d "%BUILD_DIR%" %%P in (LoopFinder.vst3) do (
     if exist "%%P" (
         echo Copying %%P
         echo   to %VST3_TARGET%
@@ -61,3 +61,9 @@ echo ----- Summary -----
 echo Installed !INSTALLED! plugin bundle(s).
 echo VST3 directory: %VST3_TARGET%
 echo VST2 directory: %VST2_TARGET%
+
+if !INSTALLED! == 0 (
+    echo No plugin bundles were installed.
+    exit /b 1
+)
+exit /b 0

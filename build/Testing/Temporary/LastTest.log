@@ -1,0 +1,38 @@
+Start testing: May 03 00:48 EDT
+----------------------------------------------------------
+1/1 Testing: LoopDetectorTests
+1/1 Test: LoopDetectorTests
+Command: "/Users/antoan/Documents/Plugin Codin/LoopFinder/build/Tests/LoopDetectorTests_artefacts/Release/LoopDetectorTests"
+Directory: /Users/antoan/Documents/Plugin Codin/LoopFinder/build/Tests
+"LoopDetectorTests" start time: May 03 00:48 EDT
+Output:
+----------------------------------------------------------
+Random seed: 0x7221544
+-----------------------------------------------------------------
+Starting tests in: LoopDetector â Sine Wave / 440Hz sine wave produces at least one loop with score > 0.99...
+Completed tests in LoopDetector â Sine Wave / 440Hz sine wave produces at least one loop with score > 0.99
+-----------------------------------------------------------------
+Starting tests in: LoopDetector â Silence / Buffer of zeros yields no regions and no crash...
+Completed tests in LoopDetector â Silence / Buffer of zeros yields no regions and no crash
+-----------------------------------------------------------------
+Starting tests in: LoopDetector â Short File / 20 ms of audio produces no regions, no crash...
+Completed tests in LoopDetector â Short File / 20 ms of audio produces no regions, no crash
+-----------------------------------------------------------------
+Starting tests in: LoopDetector â Crossfade / Crossfade tail makes splice continuous (small wrap delta)...
+click before = 1.4000, after  = 0.0011
+Completed tests in LoopDetector â Crossfade / Crossfade tail makes splice continuous (small wrap delta)
+-----------------------------------------------------------------
+Starting tests in: LoopDetector â Performance / 10s 44.1kHz sine analyses in under 2 seconds...
+Found 8 regions in 378 ms
+Completed tests in LoopDetector â Performance / 10s 44.1kHz sine analyses in under 2 seconds
+
+0 failure(s).
+<end of output>
+Test time =   0.52 sec
+----------------------------------------------------------
+Test Passed.
+"LoopDetectorTests" end time: May 03 00:48 EDT
+"LoopDetectorTests" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: May 03 00:48 EDT

@@ -75,8 +75,8 @@ LoopFinder/
 
 ## Quick install (recommended)
 
-You don't need to touch the terminal — just double-click the installer for
-your platform:
+You don't need to touch the terminal, just run the installer for
+your platform as administrator:
 
 | Platform | Installer                       | Uninstaller                       |
 |----------|---------------------------------|-----------------------------------|

@@ -105,6 +105,23 @@ ok "JUCE present at ./JUCE"
 # ---- 3. configure & build ----------------------------------------------------
 heading "Configuring & building (this may take a few minutes the first time)"
 
+# Detect a foreign / wrong-platform build cache (e.g. one that was generated
+# on Windows or with a different generator) and wipe it so we reconfigure
+# cleanly. Without this, cmake tries to use the cached build tree and fails.
+if [[ -f build/CMakeCache.txt ]]; then
+    foreign=0
+    if grep -qE '^# For build in directory: [A-Za-z]:[\\/]' build/CMakeCache.txt; then
+        foreign=1   # Windows-style absolute path
+    fi
+    if grep -qE '^CMAKE_GENERATOR:INTERNAL=Visual Studio' build/CMakeCache.txt; then
+        foreign=1
+    fi
+    if [[ $foreign -eq 1 ]]; then
+        note "Detected a foreign build cache — wiping ./build for a clean reconfigure…"
+        rm -rf build
+    fi
+fi
+
 if [[ ! -d build ]]; then
     note "First-time configure — please be patient…"
     cmake -B build -DCMAKE_BUILD_TYPE=Release >/dev/null

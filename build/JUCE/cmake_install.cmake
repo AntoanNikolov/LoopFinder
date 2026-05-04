@@ -1,8 +1,8 @@
-# Install script for directory: /Users/antoan/Documents/Plugin Codin/LoopFinder/JUCE
+# Install script for directory: C:/Users/Antoan/Downloads/LoopFinder/JUCE
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
-  set(CMAKE_INSTALL_PREFIX "/usr/local")
+  set(CMAKE_INSTALL_PREFIX "C:/Program Files (x86)/LoopFinder")
 endif()
 string(REGEX REPLACE "/$" "" CMAKE_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 
@@ -32,47 +32,42 @@ if(NOT DEFINED CMAKE_CROSSCOMPILING)
   set(CMAKE_CROSSCOMPILING "FALSE")
 endif()
 
-# Set path to fallback-tool for dependency-resolution.
-if(NOT DEFINED CMAKE_OBJDUMP)
-  set(CMAKE_OBJDUMP "/usr/bin/objdump")
+if(NOT CMAKE_INSTALL_LOCAL_ONLY)
+  # Include the install script for the subdirectory.
+  include("C:/Users/Antoan/Downloads/LoopFinder/build/JUCE/modules/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/antoan/Documents/Plugin Codin/LoopFinder/build/JUCE/modules/cmake_install.cmake")
-endif()
-
-if(NOT CMAKE_INSTALL_LOCAL_ONLY)
-  # Include the install script for the subdirectory.
-  include("/Users/antoan/Documents/Plugin Codin/LoopFinder/build/JUCE/extras/Build/cmake_install.cmake")
+  include("C:/Users/Antoan/Downloads/LoopFinder/build/JUCE/extras/Build/cmake_install.cmake")
 endif()
 
 if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
   file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/cmake/JUCE-8.0.4" TYPE FILE FILES
-    "/Users/antoan/Documents/Plugin Codin/LoopFinder/build/JUCE/JUCEConfigVersion.cmake"
-    "/Users/antoan/Documents/Plugin Codin/LoopFinder/build/JUCE/JUCEConfig.cmake"
-    "/Users/antoan/Documents/Plugin Codin/LoopFinder/JUCE/extras/Build/CMake/JUCECheckAtomic.cmake"
-    "/Users/antoan/Documents/Plugin Codin/LoopFinder/JUCE/extras/Build/CMake/JUCEHelperTargets.cmake"
-    "/Users/antoan/Documents/Plugin Codin/LoopFinder/JUCE/extras/Build/CMake/JUCEModuleSupport.cmake"
-    "/Users/antoan/Documents/Plugin Codin/LoopFinder/JUCE/extras/Build/CMake/JUCEUtils.cmake"
-    "/Users/antoan/Documents/Plugin Codin/LoopFinder/JUCE/extras/Build/CMake/JuceLV2Defines.h.in"
-    "/Users/antoan/Documents/Plugin Codin/LoopFinder/JUCE/extras/Build/CMake/LaunchScreen.storyboard"
-    "/Users/antoan/Documents/Plugin Codin/LoopFinder/JUCE/extras/Build/CMake/PIPAudioProcessor.cpp.in"
-    "/Users/antoan/Documents/Plugin Codin/LoopFinder/JUCE/extras/Build/CMake/PIPAudioProcessorWithARA.cpp.in"
-    "/Users/antoan/Documents/Plugin Codin/LoopFinder/JUCE/extras/Build/CMake/PIPComponent.cpp.in"
-    "/Users/antoan/Documents/Plugin Codin/LoopFinder/JUCE/extras/Build/CMake/PIPConsole.cpp.in"
-    "/Users/antoan/Documents/Plugin Codin/LoopFinder/JUCE/extras/Build/CMake/RecentFilesMenuTemplate.nib"
-    "/Users/antoan/Documents/Plugin Codin/LoopFinder/JUCE/extras/Build/CMake/UnityPluginGUIScript.cs.in"
-    "/Users/antoan/Documents/Plugin Codin/LoopFinder/JUCE/extras/Build/CMake/checkBundleSigning.cmake"
-    "/Users/antoan/Documents/Plugin Codin/LoopFinder/JUCE/extras/Build/CMake/copyDir.cmake"
-    "/Users/antoan/Documents/Plugin Codin/LoopFinder/JUCE/extras/Build/CMake/juce_runtime_arch_detection.cpp"
-    "/Users/antoan/Documents/Plugin Codin/LoopFinder/JUCE/extras/Build/CMake/juce_LinuxSubprocessHelper.cpp"
+    "C:/Users/Antoan/Downloads/LoopFinder/build/JUCE/JUCEConfigVersion.cmake"
+    "C:/Users/Antoan/Downloads/LoopFinder/build/JUCE/JUCEConfig.cmake"
+    "C:/Users/Antoan/Downloads/LoopFinder/JUCE/extras/Build/CMake/JUCECheckAtomic.cmake"
+    "C:/Users/Antoan/Downloads/LoopFinder/JUCE/extras/Build/CMake/JUCEHelperTargets.cmake"
+    "C:/Users/Antoan/Downloads/LoopFinder/JUCE/extras/Build/CMake/JUCEModuleSupport.cmake"
+    "C:/Users/Antoan/Downloads/LoopFinder/JUCE/extras/Build/CMake/JUCEUtils.cmake"
+    "C:/Users/Antoan/Downloads/LoopFinder/JUCE/extras/Build/CMake/JuceLV2Defines.h.in"
+    "C:/Users/Antoan/Downloads/LoopFinder/JUCE/extras/Build/CMake/LaunchScreen.storyboard"
+    "C:/Users/Antoan/Downloads/LoopFinder/JUCE/extras/Build/CMake/PIPAudioProcessor.cpp.in"
+    "C:/Users/Antoan/Downloads/LoopFinder/JUCE/extras/Build/CMake/PIPAudioProcessorWithARA.cpp.in"
+    "C:/Users/Antoan/Downloads/LoopFinder/JUCE/extras/Build/CMake/PIPComponent.cpp.in"
+    "C:/Users/Antoan/Downloads/LoopFinder/JUCE/extras/Build/CMake/PIPConsole.cpp.in"
+    "C:/Users/Antoan/Downloads/LoopFinder/JUCE/extras/Build/CMake/RecentFilesMenuTemplate.nib"
+    "C:/Users/Antoan/Downloads/LoopFinder/JUCE/extras/Build/CMake/UnityPluginGUIScript.cs.in"
+    "C:/Users/Antoan/Downloads/LoopFinder/JUCE/extras/Build/CMake/checkBundleSigning.cmake"
+    "C:/Users/Antoan/Downloads/LoopFinder/JUCE/extras/Build/CMake/copyDir.cmake"
+    "C:/Users/Antoan/Downloads/LoopFinder/JUCE/extras/Build/CMake/juce_runtime_arch_detection.cpp"
+    "C:/Users/Antoan/Downloads/LoopFinder/JUCE/extras/Build/CMake/juce_LinuxSubprocessHelper.cpp"
     )
 endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
 if(CMAKE_INSTALL_LOCAL_ONLY)
-  file(WRITE "/Users/antoan/Documents/Plugin Codin/LoopFinder/build/JUCE/install_local_manifest.txt"
+  file(WRITE "C:/Users/Antoan/Downloads/LoopFinder/build/JUCE/install_local_manifest.txt"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")
 endif()

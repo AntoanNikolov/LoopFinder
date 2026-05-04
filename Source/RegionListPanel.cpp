@@ -19,9 +19,6 @@ namespace lf
               monoSamples (mono),
               callbacks (cb)
         {
-            exportBtn.setButtonText ("Export");
-            exportBtn.onClick = [this] { if (callbacks.onExport) callbacks.onExport (index); };
-            addAndMakeVisible (exportBtn);
         }
 
         void setSelected (bool s) { selected = s; repaint(); }
@@ -56,18 +53,9 @@ namespace lf
                         juce::Rectangle<int> (60, bounds.getY() + 6, 80, 18),
                         juce::Justification::centredLeft);
 
-            // Quality
-            const float pct = juce::jlimit (0.0f, 100.0f, region.score * 100.0f);
-            g.setColour (pct >= 95.0f ? theme::success
-                                      : (pct >= 85.0f ? theme::accent : theme::warning));
-            g.drawText (juce::String ((int) std::round (pct)) + "%",
-                        juce::Rectangle<int> (bounds.getRight() - 110, bounds.getY() + 6,
-                                              40, 18),
-                        juce::Justification::centredLeft);
-
             // Mini waveform
             const auto wfArea = juce::Rectangle<int> (60, bounds.getY() + 26,
-                                                     bounds.getWidth() - 80, 22);
+                                                     bounds.getWidth() - 24, 22);
             drawMiniWave (g, wfArea, col);
 
             // Crossfade indicator
@@ -82,12 +70,7 @@ namespace lf
             }
         }
 
-        void resized() override
-        {
-            auto b = getLocalBounds();
-            const int btnW = 56, btnH = 18;
-            exportBtn.setBounds (b.getRight() - btnW - 8, b.getBottom() - btnH - 8, btnW, btnH);
-        }
+        void resized() override {}
 
         void mouseEnter (const juce::MouseEvent&) override
         {
@@ -138,8 +121,6 @@ namespace lf
         const std::vector<float>& monoSamples;
         Callbacks callbacks;
         bool selected { false };
-
-        juce::TextButton exportBtn;
     };
 
     // =========================================================================
@@ -152,9 +133,6 @@ namespace lf
         titleLabel.setText ("Loop Regions", juce::dontSendNotification);
         titleLabel.setFont (theme::heading());
         titleLabel.setColour (juce::Label::textColourId, theme::textPrimary);
-
-        addAndMakeVisible (exportAllBtn);
-        exportAllBtn.onClick = [this] { if (callbacks.onExportAll) callbacks.onExportAll(); };
 
         addAndMakeVisible (viewport);
         viewport.setViewedComponent (&listContainer, false);
@@ -189,8 +167,7 @@ namespace lf
     {
         auto b = getLocalBounds().reduced (8);
         auto top = b.removeFromTop (24);
-        titleLabel.setBounds   (top.removeFromLeft (140));
-        exportAllBtn.setBounds (top.removeFromRight (90).reduced (0, 2));
+        titleLabel.setBounds (top);
 
         b.removeFromTop (6);
         viewport.setBounds (b);

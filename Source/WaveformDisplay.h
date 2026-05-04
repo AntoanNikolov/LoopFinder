@@ -99,6 +99,12 @@ namespace lf
         void drawOverview         (juce::Graphics&, juce::Rectangle<int> area);
         void drawDragLabel        (juce::Graphics&);
 
+        // Cached waveform layer — re-rendered only when view / zoom / source
+        // changes, so the playhead-driven 30Hz repaint stays cheap and the
+        // displayed waveform is rock-steady (no per-frame re-binning).
+        void invalidateWaveformCache() { waveformCacheDirty = true; }
+        void renderWaveformCache (juce::Rectangle<int> area);
+
         // Zero-crossing snap support
         void rebuildZeroCrossings();
         int  snapToZeroCrossing (int sample, int withinSamples) const;
@@ -137,6 +143,32 @@ namespace lf
 
         // Cached zero crossings for snapping.
         std::vector<int> zeroCrossings;
+
+        // Cached waveform image (only the static waveform layer — overlays
+        // like regions and the playhead are drawn on top each frame).
+        juce::Image waveformCache;
+        bool        waveformCacheDirty { true };
+        // The state used to render the current cache. When any of these
+        // change we re-render; otherwise we just blit.
+        struct CacheKey
+        {
+            int    totalSamples = -1;
+            double zoom         = 0.0;
+            double viewStart    = -1.0;
+            int    width        = 0;
+            int    height       = 0;
+            bool   thumbReady   = false;
+            bool operator!= (const CacheKey& o) const noexcept
+            {
+                return totalSamples != o.totalSamples
+                    || zoom         != o.zoom
+                    || viewStart    != o.viewStart
+                    || width        != o.width
+                    || height       != o.height
+                    || thumbReady   != o.thumbReady;
+            }
+        };
+        CacheKey lastRenderedKey {};
 
         static constexpr double maxZoom         = 512.0;
         static constexpr int    overviewHeight  = 36;

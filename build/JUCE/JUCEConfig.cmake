@@ -50,7 +50,7 @@ include("${CMAKE_CURRENT_LIST_DIR}/VST3_HELPER.cmake")
 if(NOT TARGET juce::juceaide)
     add_executable(juce::juceaide IMPORTED)
     set_target_properties(juce::juceaide PROPERTIES
-        IMPORTED_LOCATION "${PACKAGE_PREFIX_DIR}/bin/JUCE-8.0.4/juceaide")
+        IMPORTED_LOCATION "${PACKAGE_PREFIX_DIR}/bin/JUCE-8.0.4/juceaide.exe")
 endif()
 
 check_required_components("JUCE")

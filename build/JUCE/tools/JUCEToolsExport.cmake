@@ -52,7 +52,25 @@ add_executable(juce_tools::juceaide IMPORTED)
 # Import target "juce_tools::juceaide" for configuration "Debug"
 set_property(TARGET juce_tools::juceaide APPEND PROPERTY IMPORTED_CONFIGURATIONS DEBUG)
 set_target_properties(juce_tools::juceaide PROPERTIES
-  IMPORTED_LOCATION_DEBUG "/Users/antoan/Documents/Plugin Codin/LoopFinder/build/JUCE/tools/extras/Build/juceaide/juceaide_artefacts/Debug/juceaide"
+  IMPORTED_LOCATION_DEBUG "C:/Users/Antoan/Downloads/LoopFinder/build/JUCE/tools/extras/Build/juceaide/juceaide_artefacts/Debug/juceaide.exe"
+  )
+
+# Import target "juce_tools::juceaide" for configuration "Release"
+set_property(TARGET juce_tools::juceaide APPEND PROPERTY IMPORTED_CONFIGURATIONS RELEASE)
+set_target_properties(juce_tools::juceaide PROPERTIES
+  IMPORTED_LOCATION_RELEASE "C:/Users/Antoan/Downloads/LoopFinder/build/JUCE/tools/extras/Build/juceaide/juceaide_artefacts/Release/juceaide.exe"
+  )
+
+# Import target "juce_tools::juceaide" for configuration "MinSizeRel"
+set_property(TARGET juce_tools::juceaide APPEND PROPERTY IMPORTED_CONFIGURATIONS MINSIZEREL)
+set_target_properties(juce_tools::juceaide PROPERTIES
+  IMPORTED_LOCATION_MINSIZEREL "C:/Users/Antoan/Downloads/LoopFinder/build/JUCE/tools/extras/Build/juceaide/juceaide_artefacts/MinSizeRel/juceaide.exe"
+  )
+
+# Import target "juce_tools::juceaide" for configuration "RelWithDebInfo"
+set_property(TARGET juce_tools::juceaide APPEND PROPERTY IMPORTED_CONFIGURATIONS RELWITHDEBINFO)
+set_target_properties(juce_tools::juceaide PROPERTIES
+  IMPORTED_LOCATION_RELWITHDEBINFO "C:/Users/Antoan/Downloads/LoopFinder/build/JUCE/tools/extras/Build/juceaide/juceaide_artefacts/RelWithDebInfo/juceaide.exe"
   )
 
 # This file does not depend on other imported targets which have

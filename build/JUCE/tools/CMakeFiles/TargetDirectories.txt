@@ -1,25 +1,7 @@
-/Users/antoan/Documents/Plugin Codin/LoopFinder/build/JUCE/tools/CMakeFiles/edit_cache.dir
-/Users/antoan/Documents/Plugin Codin/LoopFinder/build/JUCE/tools/CMakeFiles/rebuild_cache.dir
-/Users/antoan/Documents/Plugin Codin/LoopFinder/build/JUCE/tools/CMakeFiles/list_install_components.dir
-/Users/antoan/Documents/Plugin Codin/LoopFinder/build/JUCE/tools/CMakeFiles/install.dir
-/Users/antoan/Documents/Plugin Codin/LoopFinder/build/JUCE/tools/CMakeFiles/install/local.dir
-/Users/antoan/Documents/Plugin Codin/LoopFinder/build/JUCE/tools/CMakeFiles/install/strip.dir
-/Users/antoan/Documents/Plugin Codin/LoopFinder/build/JUCE/tools/modules/CMakeFiles/edit_cache.dir
-/Users/antoan/Documents/Plugin Codin/LoopFinder/build/JUCE/tools/modules/CMakeFiles/rebuild_cache.dir
-/Users/antoan/Documents/Plugin Codin/LoopFinder/build/JUCE/tools/modules/CMakeFiles/list_install_components.dir
-/Users/antoan/Documents/Plugin Codin/LoopFinder/build/JUCE/tools/modules/CMakeFiles/install.dir
-/Users/antoan/Documents/Plugin Codin/LoopFinder/build/JUCE/tools/modules/CMakeFiles/install/local.dir
-/Users/antoan/Documents/Plugin Codin/LoopFinder/build/JUCE/tools/modules/CMakeFiles/install/strip.dir
-/Users/antoan/Documents/Plugin Codin/LoopFinder/build/JUCE/tools/extras/Build/CMakeFiles/edit_cache.dir
-/Users/antoan/Documents/Plugin Codin/LoopFinder/build/JUCE/tools/extras/Build/CMakeFiles/rebuild_cache.dir
-/Users/antoan/Documents/Plugin Codin/LoopFinder/build/JUCE/tools/extras/Build/CMakeFiles/list_install_components.dir
-/Users/antoan/Documents/Plugin Codin/LoopFinder/build/JUCE/tools/extras/Build/CMakeFiles/install.dir
-/Users/antoan/Documents/Plugin Codin/LoopFinder/build/JUCE/tools/extras/Build/CMakeFiles/install/local.dir
-/Users/antoan/Documents/Plugin Codin/LoopFinder/build/JUCE/tools/extras/Build/CMakeFiles/install/strip.dir
-/Users/antoan/Documents/Plugin Codin/LoopFinder/build/JUCE/tools/extras/Build/juceaide/CMakeFiles/juceaide.dir
-/Users/antoan/Documents/Plugin Codin/LoopFinder/build/JUCE/tools/extras/Build/juceaide/CMakeFiles/edit_cache.dir
-/Users/antoan/Documents/Plugin Codin/LoopFinder/build/JUCE/tools/extras/Build/juceaide/CMakeFiles/rebuild_cache.dir
-/Users/antoan/Documents/Plugin Codin/LoopFinder/build/JUCE/tools/extras/Build/juceaide/CMakeFiles/list_install_components.dir
-/Users/antoan/Documents/Plugin Codin/LoopFinder/build/JUCE/tools/extras/Build/juceaide/CMakeFiles/install.dir
-/Users/antoan/Documents/Plugin Codin/LoopFinder/build/JUCE/tools/extras/Build/juceaide/CMakeFiles/install/local.dir
-/Users/antoan/Documents/Plugin Codin/LoopFinder/build/JUCE/tools/extras/Build/juceaide/CMakeFiles/install/strip.dir
+C:/Users/Antoan/Downloads/LoopFinder/build/JUCE/tools/CMakeFiles/INSTALL.dir
+C:/Users/Antoan/Downloads/LoopFinder/build/JUCE/tools/CMakeFiles/ALL_BUILD.dir
+C:/Users/Antoan/Downloads/LoopFinder/build/JUCE/tools/CMakeFiles/ZERO_CHECK.dir
+C:/Users/Antoan/Downloads/LoopFinder/build/JUCE/tools/modules/CMakeFiles/INSTALL.dir
+C:/Users/Antoan/Downloads/LoopFinder/build/JUCE/tools/extras/Build/CMakeFiles/INSTALL.dir
+C:/Users/Antoan/Downloads/LoopFinder/build/JUCE/tools/extras/Build/juceaide/CMakeFiles/juceaide.dir
+C:/Users/Antoan/Downloads/LoopFinder/build/JUCE/tools/extras/Build/juceaide/CMakeFiles/INSTALL.dir

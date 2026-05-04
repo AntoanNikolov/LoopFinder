@@ -1,5 +1,0 @@
-# Hashes of file build rules.
-3fade4db551da688f9f956e64a3b4a0f LoopFinder_artefacts/JuceLibraryCode/JuceHeader.h
-a26330d4cfe2eaedb9deda90786f59a6 LoopFinder_artefacts/JuceLibraryCode/LoopFinder_AU/PkgInfo
-2afa85a894924674ebf29c8792fe8e59 LoopFinder_artefacts/JuceLibraryCode/LoopFinder_Standalone/PkgInfo
-2bf3bd4081a08095a1155155bf5e9e7d LoopFinder_artefacts/JuceLibraryCode/LoopFinder_VST3/PkgInfo

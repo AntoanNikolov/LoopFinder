@@ -42,6 +42,7 @@ namespace lf
     {
         thumbnail.clear();
         thumbnailReady = false;
+        invalidateWaveformCache();
 
         const auto& meta = processor.getFileManager().getMetadata();
         if (! meta.isLoaded)
@@ -75,13 +76,15 @@ namespace lf
         {
             thumbnailReady = thumbnail.isFullyLoaded()
                           || thumbnail.getNumSamplesFinished() > 0;
+            invalidateWaveformCache();
             repaint();
         }
     }
 
     void WaveformDisplay::timerCallback()
     {
-        // Trigger a repaint of the playhead area.
+        // Trigger a repaint of the playhead area. The static waveform is
+        // cached, so this is cheap (just a blit + a few overlay primitives).
         repaint();
     }
 
@@ -91,6 +94,7 @@ namespace lf
     void WaveformDisplay::resized()
     {
         clampView();
+        invalidateWaveformCache();
     }
 
     juce::Rectangle<int> WaveformDisplay::getMainArea() const
@@ -128,12 +132,27 @@ namespace lf
             return;
         }
 
-        // Waveform render — switch to direct sample rendering at high zoom.
-        if (samplesPerPixel() < 4.0)
-            drawWaveformHighZoom (g, main);
-        else
-            drawWaveformLowZoom  (g, main);
+        // ---- static waveform layer (cached) ----
+        const CacheKey desired { totalSamples, zoom, viewStart,
+                                 main.getWidth(), main.getHeight(), thumbnailReady };
+        if (waveformCacheDirty
+            || ! waveformCache.isValid()
+            || lastRenderedKey != desired)
+        {
+            renderWaveformCache (main);
+            lastRenderedKey   = desired;
+            waveformCacheDirty = false;
+        }
 
+        if (waveformCache.isValid())
+            g.drawImage (waveformCache,
+                         (float) main.getX(),       (float) main.getY(),
+                         (float) main.getWidth(),   (float) main.getHeight(),
+                         0, 0,
+                         waveformCache.getWidth(),  waveformCache.getHeight(),
+                         false);
+
+        // ---- live overlays ----
         drawRegions   (g, main);
         drawPlayhead  (g, main);
         drawTimeRuler (g, ruler);
@@ -141,22 +160,103 @@ namespace lf
         drawDragLabel (g);
     }
 
+    void WaveformDisplay::renderWaveformCache (juce::Rectangle<int> area)
+    {
+        if (area.getWidth() <= 0 || area.getHeight() <= 0)
+        {
+            waveformCache = {};
+            return;
+        }
+
+        // Use a hi-DPI backing image so the rendering is crisp on Retina /
+        // scaled Windows displays. JUCE's Graphics keeps anti-aliasing on
+        // by default for path fills/strokes.
+        float scale = 1.0f;
+        if (auto* d = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay())
+            scale = juce::jmax (1.0f, (float) d->scale);
+        waveformCache = juce::Image (juce::Image::ARGB,
+                                     juce::roundToInt ((float) area.getWidth()  * scale),
+                                     juce::roundToInt ((float) area.getHeight() * scale),
+                                     true);
+        juce::Graphics g (waveformCache);
+        g.addTransform (juce::AffineTransform::scale (scale));
+
+        const juce::Rectangle<int> local (0, 0, area.getWidth(), area.getHeight());
+
+        if (samplesPerPixel() < 4.0)
+            drawWaveformHighZoom (g, local);
+        else
+            drawWaveformLowZoom  (g, local);
+    }
+
     void WaveformDisplay::drawWaveformLowZoom (juce::Graphics& g, juce::Rectangle<int> area)
     {
-        if (! thumbnailReady) return;
+        const auto& mono = processor.getFileManager().getMonoMix();
+        if (mono.empty()) return;
+
+        // Build a per-pixel-column min / max envelope from the mono samples.
+        // Drawing a single filled+stroked path produces a smooth, anti-aliased
+        // waveform — much cleaner than JUCE's default thumbnail bar rendering.
+        const int   W    = area.getWidth();
+        const float midY = (float) area.getCentreY();
+        const float amp  = (float) area.getHeight() * 0.45f;
+        const double spp = samplesPerPixel();
+        const int   N    = (int) mono.size();
+
+        std::vector<float> mins (W, 0.0f), maxs (W, 0.0f);
+        for (int x = 0; x < W; ++x)
+        {
+            const double s0 = viewStart + (double) x * spp;
+            const double s1 = s0 + spp;
+            const int i0 = juce::jlimit (0, N, (int) std::floor (s0));
+            const int i1 = juce::jlimit (i0 + 1, N, (int) std::ceil (s1));
+            if (i0 >= N || i1 <= i0) continue;
+
+            float mn = mono[(size_t) i0];
+            float mx = mn;
+            for (int k = i0 + 1; k < i1; ++k)
+            {
+                const float v = mono[(size_t) k];
+                if (v < mn) mn = v;
+                if (v > mx) mx = v;
+            }
+            mins[(size_t) x] = mn;
+            maxs[(size_t) x] = mx;
+        }
+
+        // Filled envelope: trace top, then back along bottom, close.
+        juce::Path filled;
+        filled.preallocateSpace (W * 6);
+        filled.startNewSubPath ((float) area.getX(),
+                                midY - maxs[0] * amp);
+        for (int x = 1; x < W; ++x)
+            filled.lineTo ((float) (area.getX() + x), midY - maxs[(size_t) x] * amp);
+        for (int x = W - 1; x >= 0; --x)
+            filled.lineTo ((float) (area.getX() + x), midY - mins[(size_t) x] * amp);
+        filled.closeSubPath();
+
+        g.setColour (theme::waveformFill.withAlpha (0.85f));
+        g.fillPath (filled);
+
+        // Outline the top and bottom envelopes for crisper edges. Thin (0.8 px)
+        // stroke + anti-aliasing avoids the chunky look of bar rendering.
+        juce::Path top, bot;
+        top.preallocateSpace (W * 3);
+        bot.preallocateSpace (W * 3);
+        top.startNewSubPath ((float) area.getX(), midY - maxs[0] * amp);
+        bot.startNewSubPath ((float) area.getX(), midY - mins[0] * amp);
+        for (int x = 1; x < W; ++x)
+        {
+            top.lineTo ((float) (area.getX() + x), midY - maxs[(size_t) x] * amp);
+            bot.lineTo ((float) (area.getX() + x), midY - mins[(size_t) x] * amp);
+        }
 
         g.setColour (theme::waveformOutline);
-        const double startSec = viewStart / sourceSampleRate;
-        const double endSec   = (viewStart + (double) area.getWidth() * samplesPerPixel())
-                                 / sourceSampleRate;
-
-        // Background outline pass — slightly lighter
-        thumbnail.drawChannels (g, area.expanded (0, -2),
-                                startSec, endSec, 1.0f);
-
-        g.setColour (theme::waveformFill);
-        thumbnail.drawChannels (g, area.expanded (0, -3),
-                                startSec, endSec, 0.95f);
+        const juce::PathStrokeType stroke (0.9f,
+                                           juce::PathStrokeType::curved,
+                                           juce::PathStrokeType::rounded);
+        g.strokePath (top, stroke);
+        g.strokePath (bot, stroke);
     }
 
     void WaveformDisplay::drawWaveformHighZoom (juce::Graphics& g, juce::Rectangle<int> area)
@@ -167,29 +267,36 @@ namespace lf
         const float midY = (float) area.getCentreY();
         const float ampScale = (float) area.getHeight() * 0.45f;
         const double spp = samplesPerPixel();
+        const int   N    = (int) mono.size();
+
+        // Sample at sub-pixel resolution (2x) so the path is smoother when
+        // zoomed in close to the sample level. JUCE will anti-alias the path.
+        const int   subSteps = 2;
+        const double subSpp  = spp / (double) subSteps;
+        const int    W       = area.getWidth();
 
         juce::Path path;
+        path.preallocateSpace (W * subSteps * 3);
         bool started = false;
 
-        for (int x = area.getX(); x < area.getRight(); ++x)
+        for (int x = 0; x < W * subSteps; ++x)
         {
-            const double sampleIdx = viewStart + (x - area.getX()) * spp;
-            const int    i = static_cast<int> (sampleIdx);
-            if (i < 0 || i >= (int) mono.size()) continue;
+            const double sampleIdx = viewStart + (double) x * subSpp;
+            const int    i = (int) std::floor (sampleIdx);
+            if (i < 0 || i >= N) continue;
 
             float v;
             if (spp <= 1.0)
             {
-                // Linear interpolation between samples for sub-sample zoom.
                 const float frac = (float) (sampleIdx - i);
                 const float a = mono[(size_t) i];
-                const float b = (i + 1 < (int) mono.size()) ? mono[(size_t) (i + 1)] : a;
+                const float b = (i + 1 < N) ? mono[(size_t) (i + 1)] : a;
                 v = a + (b - a) * frac;
             }
             else
             {
-                // Take peak in the bin for clarity.
-                const int end = std::min ((int) mono.size(), i + std::max (1, (int) spp));
+                const int end = juce::jlimit (i + 1, N,
+                                              i + juce::jmax (1, (int) std::ceil (subSpp)));
                 float maxAbs = 0.0f, signedV = 0.0f;
                 for (int k = i; k < end; ++k)
                 {
@@ -199,13 +306,17 @@ namespace lf
                 v = signedV;
             }
 
-            const float y = midY - v * ampScale;
-            if (! started) { path.startNewSubPath ((float) x, y); started = true; }
-            else            path.lineTo            ((float) x, y);
+            const float xPx = (float) area.getX() + (float) x / (float) subSteps;
+            const float y   = midY - v * ampScale;
+            if (! started) { path.startNewSubPath (xPx, y); started = true; }
+            else            path.lineTo            (xPx, y);
         }
 
         g.setColour (theme::waveformOutline);
-        g.strokePath (path, juce::PathStrokeType (1.0f));
+        g.strokePath (path,
+                      juce::PathStrokeType (1.4f,
+                                            juce::PathStrokeType::curved,
+                                            juce::PathStrokeType::rounded));
     }
 
     void WaveformDisplay::drawRegions (juce::Graphics& g, juce::Rectangle<int> area)
@@ -413,6 +524,7 @@ namespace lf
         const double newSpp = samplesPerPixel();
         viewStart = sampleUnderMouse - (mouseX - main.getX()) * newSpp;
         clampView();
+        invalidateWaveformCache();
         repaint();
     }
 
@@ -520,6 +632,7 @@ namespace lf
                 const double dx = (double) (e.x - dragStartMouseX);
                 viewStart = dragStartView - dx * samplesPerPixel();
                 clampView();
+                invalidateWaveformCache();
                 repaint();
                 break;
             }

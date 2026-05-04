@@ -1,8 +1,8 @@
-# Install script for directory: /Users/antoan/Documents/Plugin Codin/LoopFinder/JUCE/extras/Build/juceaide
+# Install script for directory: C:/Users/Antoan/Downloads/LoopFinder/JUCE/extras/Build/juceaide
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
-  set(CMAKE_INSTALL_PREFIX "/usr/local")
+  set(CMAKE_INSTALL_PREFIX "C:/Program Files (x86)/LoopFinder")
 endif()
 string(REGEX REPLACE "/$" "" CMAKE_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 
@@ -32,18 +32,13 @@ if(NOT DEFINED CMAKE_CROSSCOMPILING)
   set(CMAKE_CROSSCOMPILING "FALSE")
 endif()
 
-# Set path to fallback-tool for dependency-resolution.
-if(NOT DEFINED CMAKE_OBJDUMP)
-  set(CMAKE_OBJDUMP "/usr/bin/objdump")
-endif()
-
 if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/bin/JUCE-8.0.4" TYPE PROGRAM FILES "/Users/antoan/Documents/Plugin Codin/LoopFinder/build/JUCE/tools/extras/Build/juceaide/juceaide_artefacts/Debug/juceaide")
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/bin/JUCE-8.0.4" TYPE PROGRAM FILES "C:/Users/Antoan/Downloads/LoopFinder/build/JUCE/tools/extras/Build/juceaide/juceaide_artefacts/Debug/juceaide.exe")
 endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
 if(CMAKE_INSTALL_LOCAL_ONLY)
-  file(WRITE "/Users/antoan/Documents/Plugin Codin/LoopFinder/build/JUCE/extras/Build/juceaide/install_local_manifest.txt"
+  file(WRITE "C:/Users/Antoan/Downloads/LoopFinder/build/JUCE/extras/Build/juceaide/install_local_manifest.txt"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")
 endif()

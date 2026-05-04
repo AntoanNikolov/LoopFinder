@@ -18,9 +18,7 @@ namespace lf
         struct Callbacks
         {
             std::function<void (int regionIdx)> onSelect;
-            std::function<void (int regionIdx)> onExport;
             std::function<void (int regionIdx)> onHover;
-            std::function<void ()>              onExportAll;
         };
 
         explicit RegionListPanel (LoopFinderProcessor& proc);
@@ -42,7 +40,6 @@ namespace lf
         juce::Component listContainer;
         std::vector<std::unique_ptr<RegionRow>> rows;
 
-        juce::TextButton exportAllBtn { "Export All" };
         juce::Label      titleLabel;
 
         void rebuildRows();

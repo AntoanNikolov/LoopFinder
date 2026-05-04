@@ -50,16 +50,16 @@ include("${CMAKE_CURRENT_LIST_DIR}/VST3_HELPER.cmake")
 if(NOT TARGET juce::juceaide)
     add_executable(juce::juceaide IMPORTED)
     set_target_properties(juce::juceaide PROPERTIES
-        IMPORTED_LOCATION "${PACKAGE_PREFIX_DIR}/tools/extras/Build/juceaide/juceaide_artefacts/Debug/juceaide")
+        IMPORTED_LOCATION "${PACKAGE_PREFIX_DIR}/tools/extras/Build/juceaide/juceaide_artefacts/Debug/juceaide.exe")
 endif()
 
 check_required_components("JUCE")
 
-set(JUCE_MODULES_DIR "/Users/antoan/Documents/Plugin Codin/LoopFinder/JUCE/modules" CACHE INTERNAL
+set(JUCE_MODULES_DIR "C:/Users/Antoan/Downloads/LoopFinder/JUCE/modules" CACHE INTERNAL
     "The path to JUCE modules")
 
-include("/Users/antoan/Documents/Plugin Codin/LoopFinder/JUCE/extras/Build/CMake/JUCEModuleSupport.cmake")
-include("/Users/antoan/Documents/Plugin Codin/LoopFinder/JUCE/extras/Build/CMake/JUCEUtils.cmake")
+include("C:/Users/Antoan/Downloads/LoopFinder/JUCE/extras/Build/CMake/JUCEModuleSupport.cmake")
+include("C:/Users/Antoan/Downloads/LoopFinder/JUCE/extras/Build/CMake/JUCEUtils.cmake")
 
 set(_juce_modules
     juce_analytics
@@ -112,7 +112,7 @@ unset(_targets_defined)
 unset(_targets_expected)
 
 foreach(_juce_module IN LISTS _juce_modules)
-    juce_add_module("/Users/antoan/Documents/Plugin Codin/LoopFinder/JUCE/modules/${_juce_module}" ALIAS_NAMESPACE juce)
+    juce_add_module("C:/Users/Antoan/Downloads/LoopFinder/JUCE/modules/${_juce_module}" ALIAS_NAMESPACE juce)
 endforeach()
 
 unset(_juce_modules)

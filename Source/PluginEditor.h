@@ -11,6 +11,77 @@
 
 namespace lf
 {
+    /** A TextButton that draws a vector play / stop / no icon to the left of
+     *  its label. We render the glyph via juce::Path instead of relying on
+     *  Unicode play / stop characters, which don't render reliably across
+     *  platforms (Windows often shows tofu boxes for U+25B6 / U+25A0 because
+     *  the system fallback font lacks those glyphs).
+     */
+    class TransportButton  : public juce::TextButton
+    {
+    public:
+        enum class Icon { None, Play, Stop };
+
+        TransportButton (Icon ic, const juce::String& label)
+            : juce::TextButton (label), iconKind (ic) {}
+
+        void paintButton (juce::Graphics& g,
+                          bool shouldDrawButtonAsHighlighted,
+                          bool shouldDrawButtonAsDown) override
+        {
+            auto& lf = getLookAndFeel();
+            lf.drawButtonBackground (g, *this,
+                findColour (getToggleState() ? buttonOnColourId : buttonColourId),
+                shouldDrawButtonAsHighlighted, shouldDrawButtonAsDown);
+
+            const auto bounds = getLocalBounds().toFloat();
+            constexpr float iconAreaW = 22.0f;
+
+            // ----- icon -----
+            if (iconKind != Icon::None)
+            {
+                juce::Path p;
+                const float cx = 11.0f;
+                const float cy = bounds.getCentreY();
+                const float s  = 4.5f;
+
+                if (iconKind == Icon::Play)
+                {
+                    // Right-pointing triangle, centred and visually balanced.
+                    p.addTriangle (cx - s * 0.7f, cy - s,
+                                   cx - s * 0.7f, cy + s,
+                                   cx + s * 0.9f, cy);
+                }
+                else // Stop
+                {
+                    p.addRectangle (cx - s * 0.85f, cy - s * 0.85f,
+                                    s * 1.7f,       s * 1.7f);
+                }
+
+                g.setColour (findColour (textColourOffId)
+                                .withMultipliedAlpha (isEnabled() ? 1.0f : 0.5f));
+                g.fillPath (p);
+            }
+
+            // ----- text (centred in the area to the right of the icon) -----
+            const auto font = lf.getTextButtonFont (*this, getHeight());
+            g.setFont (font);
+            g.setColour (findColour (getToggleState() ? textColourOnId : textColourOffId)
+                            .withMultipliedAlpha (isEnabled() ? 1.0f : 0.5f));
+
+            const int yIndent  = juce::jmin (4, juce::roundToInt (getHeight() * 0.3f));
+            const int textX    = (int) iconAreaW;
+            const int textW    = getWidth() - textX - 6;
+            if (textW > 0)
+                g.drawFittedText (getButtonText(),
+                                  textX, yIndent, textW, getHeight() - yIndent * 2,
+                                  juce::Justification::centred, 2);
+        }
+
+    private:
+        Icon iconKind { Icon::None };
+    };
+
     class LoopFinderEditor  : public juce::AudioProcessorEditor,
                               public juce::FileDragAndDropTarget,
                               private juce::Timer,
@@ -39,8 +110,6 @@ namespace lf
         // Actions
         void doLoadFile();
         void doAnalyze();
-        void doExport (int regionIndex);
-        void doExportAll();
         void selectRegion (int idx);
         void auditionRegion (int idx);
         void editRegion (int idx, int newStart, int newEnd);
@@ -53,11 +122,11 @@ namespace lf
         LoopFinderProcessor& proc;
 
         // UI elements
-        juce::Label      titleLabel;
-        juce::TextButton loadBtn      { "Load File" };
-        juce::TextButton analyzeBtn   { "Analyze"   };
-        juce::TextButton playBtn      { juce::String::fromUTF8 (u8"▶ Preview") };
-        juce::TextButton stopBtn      { juce::String::fromUTF8 (u8"■ Stop") };
+        juce::Label       titleLabel;
+        juce::TextButton  loadBtn     { "Load File" };
+        juce::TextButton  analyzeBtn  { "Analyze"   };
+        TransportButton   playBtn     { TransportButton::Icon::Play, "Preview" };
+        TransportButton   stopBtn     { TransportButton::Icon::Stop, "Stop"    };
         juce::ToggleButton loopBtn    { "Loop" };
         juce::Slider     volumeSlider;
         juce::Label      volumeLabel;

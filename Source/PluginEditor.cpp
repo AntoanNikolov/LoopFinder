@@ -1,5 +1,4 @@
 #include "PluginEditor.h"
-#include "LoopExporter.h"
 
 namespace lf
 {
@@ -120,10 +119,8 @@ namespace lf
 
         addAndMakeVisible (regionList);
         RegionListPanel::Callbacks rcb;
-        rcb.onSelect    = [this] (int i) { selectRegion (i); };
-        rcb.onExport    = [this] (int i) { doExport (i); };
-        rcb.onExportAll = [this]         { doExportAll(); };
-        rcb.onHover     = [] (int i) { /* could highlight in waveform — not yet */ juce::ignoreUnused (i); };
+        rcb.onSelect = [this] (int i) { selectRegion (i); };
+        rcb.onHover  = [] (int i) { /* could highlight in waveform — not yet */ juce::ignoreUnused (i); };
         regionList.setCallbacks (rcb);
 
         proc.addLoopFinderListener (this);
@@ -332,90 +329,6 @@ namespace lf
         messageLabel.setText ("Analysing…", juce::dontSendNotification);
         progressBar.setVisible (true);
         proc.startAnalysis();
-    }
-
-    void LoopFinderEditor::doExport (int regionIndex)
-    {
-        const auto regs = proc.getRegions();
-        if (regionIndex < 0 || regionIndex >= (int) regs.size()) return;
-
-        const auto base = proc.getFileManager().getMetadata().filename
-                            .upToLastOccurrenceOf (".", false, false);
-        const auto suggested = juce::File::getSpecialLocation (juce::File::userDesktopDirectory)
-                                  .getChildFile (base + "_loop_"
-                                              + juce::String (regionIndex + 1) + ".wav");
-
-        currentChooser = std::make_unique<juce::FileChooser> (
-            "Export loop region as WAV", suggested, "*.wav");
-
-        const auto flags = juce::FileBrowserComponent::saveMode
-                         | juce::FileBrowserComponent::canSelectFiles
-                         | juce::FileBrowserComponent::warnAboutOverwriting;
-
-        juce::Component::SafePointer<LoopFinderEditor> safe (this);
-        currentChooser->launchAsync (flags,
-            [safe, regionIndex, regs] (const juce::FileChooser& fc)
-            {
-                if (safe == nullptr) return;
-                const auto out = fc.getResult();
-                if (out == juce::File()) return;
-
-                LoopExporter::Options opts;
-                opts.bitDepth = LoopExporter::BitDepth::int16;
-                opts.applyCrossfade  = true;
-                opts.crossfadeSamples = (int) std::lround (
-                    0.002 * safe->proc.getFileManager().getMetadata().sampleRate);
-
-                const auto r = LoopExporter::exportRegion (
-                    safe->proc.getFileManager().getAudioBuffer(),
-                    safe->proc.getFileManager().getMetadata().sampleRate,
-                    regs[(size_t) regionIndex],
-                    out, opts);
-
-                safe->messageLabel.setText (r.ok ? r.message : "Export failed: " + r.message,
-                                            juce::dontSendNotification);
-            });
-    }
-
-    void LoopFinderEditor::doExportAll()
-    {
-        const auto regs = proc.getRegions();
-        if (regs.empty()) return;
-
-        currentChooser = std::make_unique<juce::FileChooser> (
-            "Choose folder for batch export",
-            juce::File::getSpecialLocation (juce::File::userDesktopDirectory));
-
-        juce::Component::SafePointer<LoopFinderEditor> safe (this);
-        currentChooser->launchAsync (
-            juce::FileBrowserComponent::openMode
-            | juce::FileBrowserComponent::canSelectDirectories,
-            [safe, regs] (const juce::FileChooser& fc)
-            {
-                if (safe == nullptr) return;
-                const auto folder = fc.getResult();
-                if (folder == juce::File()) return;
-
-                LoopExporter::Options opts;
-                opts.bitDepth        = LoopExporter::BitDepth::int16;
-                opts.applyCrossfade  = true;
-                opts.crossfadeSamples = (int) std::lround (
-                    0.002 * safe->proc.getFileManager().getMetadata().sampleRate);
-
-                const auto base = safe->proc.getFileManager().getMetadata().filename
-                                    .upToLastOccurrenceOf (".", false, false);
-                const auto results = LoopExporter::exportAll (
-                    safe->proc.getFileManager().getAudioBuffer(),
-                    safe->proc.getFileManager().getMetadata().sampleRate,
-                    regs, folder, base, opts);
-
-                int ok = 0;
-                for (const auto& r : results) if (r.ok) ++ok;
-                safe->messageLabel.setText ("Exported " + juce::String (ok) + " / "
-                                            + juce::String ((int) results.size()) + " regions to "
-                                            + folder.getFileName(),
-                                            juce::dontSendNotification);
-            });
     }
 
     void LoopFinderEditor::selectRegion (int idx)

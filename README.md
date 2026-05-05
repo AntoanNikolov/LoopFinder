@@ -66,39 +66,63 @@ LoopFinder/
 ├── Uninstall LoopFinder.command
 ├── Install LoopFinder.bat        ← double-click on Windows
 ├── Uninstall LoopFinder.bat
+├── Build Release.command         ← devs only: produces Release/macOS/
+├── Build Release.bat             ← devs only: produces Release\Windows\
 ├── install.sh    install.bat     ← lower-level scripts called by the above
 ├── .gitignore
-└── JUCE/                         ← git submodule (auto-cloned by installer)
+└── JUCE/                         ← auto-cloned by installer (.gitignored)
 ```
 
 ---
 
-## Quick install (recommended)
+## Install
 
-You don't need to touch the terminal, just run the installer for
-your platform as administrator:
+There are two install paths depending on what you have. Both run from the
+same script; the script picks the right path automatically.
 
-| Platform | Installer                       | Uninstaller                       |
-|----------|---------------------------------|-----------------------------------|
-| macOS    | `Install LoopFinder.command`    | `Uninstall LoopFinder.command`    |
-| Windows  | `Install LoopFinder.bat`        | `Uninstall LoopFinder.bat`        |
+### A. End user — pre-built release ZIP (plug-and-play, no prerequisites)
 
-The installer will:
+If someone handed you a `LoopFinder_<platform>.zip`:
 
-1. Verify CMake / git / Xcode CLT are present (Visual Studio on Windows).
-2. Download JUCE 8.0.4 the first time (~70 MB, one-time).
-3. Build LoopFinder (incremental — only changed files on subsequent runs).
-4. Copy the AU and VST3 bundles to your user plug-in folders.
-5. Run `auval` on macOS to confirm the AU is valid.
+| Platform | What to do                                                                |
+|----------|---------------------------------------------------------------------------|
+| Windows  | Extract the ZIP. Double-click **`Install LoopFinder.bat`**. Accept the UAC prompt. Press `Y`. Done. |
+| macOS    | Extract the ZIP. Double-click **`Install LoopFinder.command`**. Press `Return`. Done. (If macOS warns "unidentified developer", right-click the file → **Open** → **Open** the first time.) |
 
-> **macOS Gatekeeper note:** the first time you double-click `.command` files
-> downloaded from the internet, macOS may show a "cannot be opened because the
-> developer cannot be verified" dialog. Right-click the file → **Open** to
-> grant a one-time exception, or remove the quarantine flag via:
-> `xattr -d com.apple.quarantine "Install LoopFinder.command"`.
->
-> **Windows note:** the first install may need to be run as Administrator so
-> the script can write to `C:\Program Files\Common Files\VST3`.
+The pre-built ZIP contains the compiled `LoopFinder.vst3` (and on macOS,
+`LoopFinder.component`) right next to the installer. The installer detects
+those bundles and just copies them into the system plug-in folders. **No
+CMake, no Visual Studio, no Xcode tools, no Git required** — it's literally
+a copy operation.
+
+### B. Developer — source clone (builds from source)
+
+If you cloned this repo, double-clicking the same installer will:
+
+1. Detect that no pre-built bundle is present, then fall through to source build.
+2. Verify CMake / Git / Xcode CLT (or Visual Studio on Windows) are present.
+3. Download JUCE 8.0.4 the first time (~70 MB, one-time).
+4. Build LoopFinder (incremental — only changed files on subsequent runs).
+5. Copy the AU and VST3 bundles to your user plug-in folders.
+6. Run `auval` on macOS to confirm the AU is valid.
+
+If a required toolchain is missing, the script tells you exactly what to
+install and points you at the download page.
+
+### Producing a release ZIP for friends
+
+Once you can build locally, run the matching `Build Release` script:
+
+| Platform | Script                       | Output                              |
+|----------|------------------------------|-------------------------------------|
+| Windows  | `Build Release.bat`          | `Release\Windows\` (zip and send)   |
+| macOS    | `Build Release.command`      | `Release/macOS/`   (zip and send)   |
+
+That folder contains only `Install LoopFinder.*`, `Uninstall LoopFinder.*`,
+the pre-built bundle(s) and a tiny `README.txt` — nothing else. Right-click
+the folder → **Send to ▸ Compressed (zipped) folder** (Windows) or
+**Compress** (macOS) and you have a single ZIP your friends can use without
+installing any developer tooling.
 
 ---
 

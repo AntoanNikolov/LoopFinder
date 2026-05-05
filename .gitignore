@@ -7,6 +7,10 @@ cmake-build-*/
 out/
 Builds/
 
+# Release artefacts produced by Build Release.{bat,command}. These are the
+# zippable output folders for end users -- do not commit binaries.
+/Release/
+
 # ---- Third-party source (fetched by the install scripts on first run) ------
 # JUCE is downloaded into ./JUCE by Install LoopFinder.{bat,command}; we don't
 # ship it in this repository.

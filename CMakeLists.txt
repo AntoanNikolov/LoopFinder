@@ -1,5 +1,14 @@
 cmake_minimum_required(VERSION 3.22)
 
+if(APPLE)
+    # Universal binaries load under native Apple Silicon and Intel hosts. A single-arch
+    # plug-in often fails in FL Studio while the standalone app still runs (different slice).
+    if(NOT CMAKE_OSX_ARCHITECTURES)
+        set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64"
+            CACHE STRING "macOS target architectures (fat/universal binary)")
+    endif()
+endif()
+
 project(LoopFinder
     VERSION 0.1.0
     DESCRIPTION "Automatically detect seamless loop points in audio"

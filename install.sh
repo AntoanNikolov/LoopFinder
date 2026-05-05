@@ -38,6 +38,33 @@ copy_bundle () {
     fi
 }
 
+# Prefer JUCE's artefact layout (same strategy as install.bat on Windows): outer bundle with Contents/.
+pick_mac_bundle () {
+    local ext="$1"
+    local subdir cfg candidate
+    case "$ext" in
+        vst3)      subdir="VST3" ;;
+        vst)       subdir="VST" ;;
+        component) subdir="AU" ;;
+        *) echo ""; return 1 ;;
+    esac
+    for cfg in Release RelWithDebInfo MinSizeRel Debug; do
+        candidate="$BUILD_DIR/LoopFinder_artefacts/$cfg/$subdir/LoopFinder.$ext"
+        if [[ -d "$candidate/Contents" ]]; then
+            echo "$candidate"
+            return 0
+        fi
+    done
+    candidate=""
+    while IFS= read -r -d '' p; do
+        if [[ -d "$p/Contents" ]]; then
+            candidate="$p"
+            break
+        fi
+    done < <(find "$BUILD_DIR" -type d -name "LoopFinder.$ext" -print0 2>/dev/null || true)
+    echo "${candidate:-}"
+}
+
 # -----------------------------------------------------------------------------
 # macOS
 # -----------------------------------------------------------------------------
@@ -53,8 +80,7 @@ if [[ "$OS" == "Darwin" ]]; then
             VST)  ext="vst";   target="$HOME_VST2" ;;
             AU)   ext="component"; target="$HOME_AU" ;;
         esac
-        # Look in the canonical JUCE artefact location.
-        candidate="$(find "$BUILD_DIR" -type d -name "LoopFinder.${ext}" -print -quit || true)"
+        candidate="$(pick_mac_bundle "$ext")"
         if [[ -n "$candidate" ]]; then
             copy_bundle "$candidate" "$target"
         fi
@@ -68,7 +94,7 @@ if [[ "$OS" == "Darwin" ]]; then
         # LoopFinder is now an instrument — AU type is `aumu` (MusicDevice).
         # Manufacturer / subtype codes mirror PLUGIN_MANUFACTURER_CODE /
         # PLUGIN_CODE in CMakeLists.txt.
-        if auval -v aumu Lpfd Ynme; then
+        if auval -v aumu Ynme Lpfd; then
             echo "  ✓ auval reports the AU as valid"
         else
             echo "  ✗ auval reported errors — see output above"

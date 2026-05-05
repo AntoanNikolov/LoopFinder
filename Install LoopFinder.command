@@ -61,7 +61,8 @@ build_from_source_mac () {
         fi
     fi
 
-    cmake -B build -DCMAKE_BUILD_TYPE=Release >/dev/null \
+    cmake -B build -DCMAKE_BUILD_TYPE=Release \
+        "-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64" >/dev/null \
         || fail "CMake configure failed."
     cmake --build build --config Release --target LoopFinder_All \
         || fail "Build failed."
@@ -145,7 +146,7 @@ install_bundle "$VST3_SRC" "$USER_VST3_DIR" || true
 if [[ -n "$AU_SRC" ]] && command -v auval >/dev/null 2>&1; then
     heading "Validating AU"
     killall -9 AudioComponentRegistrar 2>/dev/null || true
-    auval -v aumu Lpfd Ynme >/dev/null 2>&1 \
+    auval -v aumu Ynme Lpfd >/dev/null 2>&1 \
         || echo "note: auval reported warnings; try a plug-in rescan."
 fi
 

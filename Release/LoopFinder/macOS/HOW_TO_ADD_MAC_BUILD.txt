@@ -1,0 +1,10 @@
+This macOS plug-in binaries are not filled in yet.
+
+LoopFinder ships .vst3 / .component bundles compiled on a Mac ---
+Windows MSVC cannot emit these Mach-O plug-ins locally.
+
+On macOS (same repo synced here): double-click
+  "Build Release.command"
+It merges into Release\LoopFinder\macOS\ without touching Windows\ .
+
+ZIP the whole LoopFinder folder only after BOTH subfolders are complete.

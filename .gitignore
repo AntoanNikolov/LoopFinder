@@ -7,13 +7,7 @@ cmake-build-*/
 out/
 Builds/
 
-# Release artefacts produced by Build Release.{bat,command}. These are the
-# zippable output folders for end users -- do not commit binaries.
-/Release/
-
-# ---- Third-party source (fetched by the install scripts on first run) ------
-# JUCE is downloaded into ./JUCE by Install LoopFinder.{bat,command}; we don't
-# ship it in this repository.
+# ---- Third-party source (cloned by maintainers running CMake manually) -----
 /JUCE/
 
 # ---- IDE / editors ----------------------------------------------------------
@@ -38,11 +32,7 @@ compile_commands.json
 *.lib
 *.a
 
-# ---- macOS bundles inadvertently checked in --------------------------------
-*.vst3/
-*.vst/
-*.component/
-*.app/
+# (Prebuilt/*/LoopFinder.plugin bundles ARE committed intentionally --- do not ignore them.)
 
 # ---- Notes / scratch / local-only artefacts --------------------------------
 .notes/

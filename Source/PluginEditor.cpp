@@ -3,6 +3,7 @@
 namespace lf
 {
     using SliderAttach = juce::AudioProcessorValueTreeState::SliderAttachment;
+    using ButtonAttach = juce::AudioProcessorValueTreeState::ButtonAttachment;
 
     // =========================================================================
     LoopFinderEditor::LoopFinderEditor (LoopFinderProcessor& p)
@@ -40,6 +41,12 @@ namespace lf
 
         addAndMakeVisible (stopBtn);
         stopBtn.onClick = [this] { proc.getPlayback().releasePreview(); updateTransportEnablement(); };
+
+        addAndMakeVisible (midiFromStartBtn);
+        midiFromStartBtn.setTooltip (
+            "When on, each MIDI trigger plays from the start of the file, then loops the region. "
+            "Only one voice plays at a time so hits never stack.");
+        midiFromStartAttach = std::make_unique<ButtonAttach> (proc.getApvts(), "midiFromStart", midiFromStartBtn);
 
         addAndMakeVisible (loopBtn);
         loopBtn.setToggleState (proc.getPlayback().isLoopEnabled(), juce::dontSendNotification);
@@ -189,11 +196,13 @@ namespace lf
 
         // Row 1 — transport
         auto row1 = footer.removeFromTop (24);
-        playBtn .setBounds (row1.removeFromLeft (88));
+        playBtn .setBounds (row1.removeFromLeft (80));
         row1.removeFromLeft (4);
-        stopBtn .setBounds (row1.removeFromLeft (76));
+        stopBtn .setBounds (row1.removeFromLeft (72));
+        row1.removeFromLeft (4);
+        midiFromStartBtn.setBounds (row1.removeFromLeft (118));
         row1.removeFromLeft (8);
-        loopBtn .setBounds (row1.removeFromLeft (60));
+        loopBtn .setBounds (row1.removeFromLeft (56));
         row1.removeFromLeft (8);
         volumeLabel.setBounds  (row1.removeFromLeft (28));
         volumeSlider.setBounds (row1);
@@ -376,6 +385,7 @@ namespace lf
         const bool hasFile = proc.getFileManager().isLoaded();
         playBtn.setEnabled (hasFile);
         stopBtn.setEnabled (hasFile);
+        midiFromStartBtn.setEnabled (hasFile);
         loopBtn.setToggleState (proc.getPlayback().isLoopEnabled(), juce::dontSendNotification);
         analyzeBtn.setEnabled (hasFile && ! proc.isAnalysing());
     }

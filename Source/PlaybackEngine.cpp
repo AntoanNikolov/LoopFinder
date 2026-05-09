@@ -42,8 +42,20 @@ namespace lf
     }
 
     void PlaybackEngine::clearRegion() noexcept       { setRegion (0, 0, 0); }
-    void PlaybackEngine::triggerPreview()  noexcept   { previewOnPending.store  (true, std::memory_order_release); }
-    void PlaybackEngine::releasePreview()  noexcept   { previewOffPending.store (true, std::memory_order_release); }
+    void PlaybackEngine::triggerPreview() noexcept
+    {
+        previewOnPending.store (true, std::memory_order_release);
+    }
+
+    void PlaybackEngine::releasePreview() noexcept
+    {
+        previewOffPending.store (true, std::memory_order_release);
+    }
+
+    void PlaybackEngine::setMidiIntroFromFileStartEnabled (bool on) noexcept
+    {
+        midiIntroFromFileStartEnabled.store (on, std::memory_order_release);
+    }
 
     void PlaybackEngine::setLoopEnabled (bool s) noexcept { loopFlag.store (s,                       std::memory_order_release); }
     void PlaybackEngine::setGainDb     (float db) noexcept { gainDb.store   (juce::jlimit (-60.0f, 6.0f, db), std::memory_order_release); }
@@ -97,7 +109,8 @@ namespace lf
         return victim;
     }
 
-    void PlaybackEngine::startVoice (Voice& v, int midiNote, float velocity) noexcept
+    void PlaybackEngine::startVoice (Voice& v, int midiNote, float velocity,
+                                     bool introFromFileStartRequested) noexcept
     {
         const int s = pendingStart.load (std::memory_order_acquire);
         const int e = pendingEnd.load   (std::memory_order_acquire);
@@ -114,6 +127,8 @@ namespace lf
         v.positionInLoop = 0.0;
         v.age         = 0;
 
+        v.introFromFileStart = introFromFileStartRequested && (v.activeStart > 0);
+
         const int referenceNote = (midiNote == previewNoteMagic ? rootNote.load() : midiNote);
         const int delta = referenceNote - rootNote.load();
         v.pitchRatio  = std::pow (2.0, static_cast<double> (delta) / 12.0);
@@ -125,14 +140,22 @@ namespace lf
         if (sourceBuffer == nullptr || sourceBuffer->getNumSamples() == 0)
             return;
 
+        const bool isPreview = (midiNote == previewNoteMagic);
+        const bool midiIntro = (! isPreview)
+                               && midiIntroFromFileStartEnabled.load (std::memory_order_acquire);
+
+        if (midiIntro)
+            releaseAllVoices();
+
+        const bool introRequested = midiIntro;
+
         if (auto* existing = findVoiceForNote (midiNote))
         {
-            // Retrigger: reset envelope/position but keep allocation.
-            startVoice (*existing, midiNote, velocity);
+            startVoice (*existing, midiNote, velocity, introRequested);
             return;
         }
         if (auto* v = findFreeOrSteal())
-            startVoice (*v, midiNote, velocity);
+            startVoice (*v, midiNote, velocity, introRequested);
     }
 
     void PlaybackEngine::handleNoteOff (int midiNote) noexcept
@@ -149,6 +172,7 @@ namespace lf
             v.releasing = false;
             v.envelope  = 0.0f;
             v.positionInLoop = 0.0;
+            v.introFromFileStart = false;
         }
     }
 
@@ -216,14 +240,42 @@ namespace lf
                 v.envelope = std::min (1.0f, v.envelope + attackStep);
             }
 
+            const float voiceGain = v.envelope * v.velocity * blockGain;
+
+            // ----- Intro: absolute file position until loop region start -----
+            if (v.introFromFileStart)
+            {
+                double absPos = v.positionInLoop;
+                const double loopBegin = static_cast<double> (v.activeStart);
+                const double lastReadable = static_cast<double> (juce::jmax (0, srcLen - 1));
+
+                if (absPos >= loopBegin)
+                {
+                    v.introFromFileStart = false;
+                    v.positionInLoop = absPos - loopBegin;
+                }
+                else if (srcLen > 0 && absPos >= lastReadable)
+                {
+                    v.introFromFileStart = false;
+                    v.positionInLoop = 0.0;
+                }
+                else
+                {
+                    for (int ch = 0; ch < numCh; ++ch)
+                        buffer.addSample (ch, f, readSample (ch, absPos) * voiceGain);
+
+                    v.positionInLoop += step;
+                    continue;
+                }
+            }
+
+            // ----- Loop region (relative positionInLoop) -----
             float blendAlpha = 0.0f;
             if (K > 0 && v.positionInLoop >= tailStart)
             {
                 const double t = (v.positionInLoop - tailStart) / static_cast<double> (K);
                 blendAlpha = static_cast<float> (juce::jlimit (0.0, 1.0, t));
             }
-
-            const float voiceGain = v.envelope * v.velocity * blockGain;
 
             for (int ch = 0; ch < numCh; ++ch)
             {
@@ -249,7 +301,6 @@ namespace lf
                 }
                 else
                 {
-                    // One-shot done — release the voice.
                     v.releasing = true;
                 }
             }
@@ -274,7 +325,7 @@ namespace lf
 
         // Service preview-note requests from the UI thread.
         if (previewOnPending.exchange (false, std::memory_order_acq_rel))
-            handleNoteOn  (previewNoteMagic, 1.0f);
+            handleNoteOn (previewNoteMagic, 1.0f);
         if (previewOffPending.exchange (false, std::memory_order_acq_rel))
             handleNoteOff (previewNoteMagic);
 
@@ -317,7 +368,9 @@ namespace lf
             if (v.active.load (std::memory_order_acquire))
             {
                 any = true;
-                pubPos = v.activeStart + static_cast<int> (v.positionInLoop);
+                pubPos = v.introFromFileStart
+                             ? static_cast<int> (v.positionInLoop)
+                             : v.activeStart + static_cast<int> (v.positionInLoop);
                 break; // first match is fine for a status display
             }
         }

@@ -53,6 +53,14 @@ namespace lf
         void triggerPreview()                     noexcept;
         void releasePreview()                     noexcept;
 
+        /** When enabled, real MIDI note-ons play from file sample 0 until the loop region,
+         *  then loop as usual. Voices are cleared before each note-on so triggers never overlap. */
+        void setMidiIntroFromFileStartEnabled (bool) noexcept;
+        bool isMidiIntroFromFileStartEnabled() const noexcept
+        {
+            return midiIntroFromFileStartEnabled.load (std::memory_order_acquire);
+        }
+
         void setLoopEnabled (bool shouldLoop)     noexcept;
         void setGainDb (float db)                 noexcept;
         void setRootNote (int midiNote)           noexcept;
@@ -105,7 +113,8 @@ namespace lf
             int    age                { 0 };          // for voice stealing
             float  velocity           { 1.0f };
             double pitchRatio         { 1.0 };
-            double positionInLoop     { 0.0 };        // in source samples
+            double positionInLoop     { 0.0 };        // intro: absolute file sample; loop phase: offset in region
+            bool   introFromFileStart { false };      // play [0, activeStart) once, then loop region
             int    activeStart        { 0 };
             int    activeEnd          { 0 };
             int    activeK            { 0 };
@@ -118,7 +127,8 @@ namespace lf
         // Voice management (audio-thread only)
         Voice* findVoiceForNote (int midiNote) noexcept;
         Voice* findFreeOrSteal  () noexcept;
-        void   startVoice (Voice&, int midiNote, float velocity) noexcept;
+        void   startVoice (Voice&, int midiNote, float velocity,
+                           bool introFromFileStartRequested) noexcept;
         void   renderVoiceChunk (Voice&, juce::AudioBuffer<float>&,
                                  int startFrame, int numFrames, float blockGain) noexcept;
         float  readSample (int channel, double sourcePos) const noexcept;
@@ -139,9 +149,11 @@ namespace lf
         std::atomic<float> gainDb      { 0.0f };
         std::atomic<int>   rootNote    { 60 };  // C4
 
+        std::atomic<bool>  midiIntroFromFileStartEnabled { false };
+
         // Cross-thread "preview note" requests from the UI Play button.
-        std::atomic<bool>  previewOnPending  { false };
-        std::atomic<bool>  previewOffPending { false };
+        std::atomic<bool>  previewOnPending   { false };
+        std::atomic<bool>  previewOffPending  { false };
 
         // Smoothed master gain (audio-thread only)
         float smoothedGain { 1.0f };

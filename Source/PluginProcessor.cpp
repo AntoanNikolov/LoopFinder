@@ -28,6 +28,11 @@ namespace lf
                     .withStringFromValueFunction ([] (int v, int) {
                         return juce::MidiMessage::getMidiNoteName (v, true, true, 4); })));
 
+            p.push_back (std::make_unique<juce::AudioParameterBool> (
+                juce::ParameterID { "midiFromStart", 1 },
+                "MIDI from start",
+                false));
+
             return { p.begin(), p.end() };
         }
     }
@@ -42,13 +47,16 @@ namespace lf
         // Forward parameters into the playback engine without allocating
         // a heap-owned listener. APVTS does not delete its listeners and
         // we own ours as long as the processor is alive.
-        apvts.addParameterListener ("gainDb",   this);
-        apvts.addParameterListener ("rootNote", this);
+        apvts.addParameterListener ("gainDb",        this);
+        apvts.addParameterListener ("rootNote",      this);
+        apvts.addParameterListener ("midiFromStart", this);
 
         if (auto* p = apvts.getRawParameterValue ("gainDb"))
             playback.setGainDb (p->load());
         if (auto* p = apvts.getRawParameterValue ("rootNote"))
             playback.setRootNote (static_cast<int> (p->load()));
+        if (auto* p = apvts.getRawParameterValue ("midiFromStart"))
+            playback.setMidiIntroFromFileStartEnabled (p->load() > 0.5f);
 
         thumbThread.startThread (juce::Thread::Priority::low);
 
@@ -60,8 +68,9 @@ namespace lf
 
     LoopFinderProcessor::~LoopFinderProcessor()
     {
-        apvts.removeParameterListener ("gainDb",   this);
-        apvts.removeParameterListener ("rootNote", this);
+        apvts.removeParameterListener ("gainDb",        this);
+        apvts.removeParameterListener ("rootNote",      this);
+        apvts.removeParameterListener ("midiFromStart", this);
         cancelAnalysis();
         thumbThread.stopThread (1000);
     }
@@ -69,8 +78,9 @@ namespace lf
     void LoopFinderProcessor::parameterChanged (const juce::String& paramID,
                                                 float newValue)
     {
-        if      (paramID == "gainDb")   playback.setGainDb   (newValue);
-        else if (paramID == "rootNote") playback.setRootNote (static_cast<int> (newValue));
+        if      (paramID == "gainDb")        playback.setGainDb (newValue);
+        else if (paramID == "rootNote")      playback.setRootNote (static_cast<int> (newValue));
+        else if (paramID == "midiFromStart") playback.setMidiIntroFromFileStartEnabled (newValue > 0.5f);
     }
 
     // -------------------------------------------------------------------------

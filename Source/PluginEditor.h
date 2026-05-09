@@ -125,9 +125,10 @@ namespace lf
         juce::Label       titleLabel;
         juce::TextButton  loadBtn     { "Load File" };
         juce::TextButton  analyzeBtn  { "Analyze"   };
-        TransportButton   playBtn     { TransportButton::Icon::Play, "Preview" };
-        TransportButton   stopBtn     { TransportButton::Icon::Stop, "Stop"    };
-        juce::ToggleButton loopBtn    { "Loop" };
+        TransportButton   playBtn          { TransportButton::Icon::Play, "Preview" };
+        TransportButton   stopBtn          { TransportButton::Icon::Stop, "Stop"    };
+        juce::ToggleButton midiFromStartBtn { "From start" };
+        juce::ToggleButton loopBtn          { "Loop" };
         juce::Slider     volumeSlider;
         juce::Label      volumeLabel;
 
@@ -151,8 +152,9 @@ namespace lf
 
         juce::TooltipWindow tooltipWindow { this, 350 };
 
-        std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> volumeAttach;
-        std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> rootAttach;
+        std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   volumeAttach;
+        std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   rootAttach;
+        std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>   midiFromStartAttach;
 
         std::unique_ptr<juce::FileChooser> currentChooser;
 

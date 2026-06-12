@@ -72,6 +72,8 @@ ctest --test-dir build --output-on-failure
 
 `.github/workflows/build.yml` builds and tests on macOS and Windows for every push, and uploads ready-to-ship `LoopFinder-macOS` / `LoopFinder-Windows` artifacts. Maintainers: copy those into `Prebuilt/` when cutting a release (see `Prebuilt/README_MAINTAINER.txt`).
 
+> **Keeping `Prebuilt/` in sync:** the installers ship whatever is committed under `Prebuilt/`, so after changing the C++ sources those bundles must be refreshed or users will install an outdated plug-in. macOS bundles can be rebuilt locally on a Mac, but `Prebuilt/Windows/` can only be refreshed from the `LoopFinder-Windows` CI artifact (or a Windows machine): open the latest **Build** run on GitHub Actions, download the artifact, and commit its `LoopFinder.vst3` into `Prebuilt/Windows/`.
+
 ## How it works
 
 - **Loop detection** — finds rising zero-crossings, pairs them within a 50 ms–4 s loop-length window, scores each pair with normalised cross-correlation, and returns the top eight de-duplicated candidates. When you highlight a search area, only crossings inside it are considered.

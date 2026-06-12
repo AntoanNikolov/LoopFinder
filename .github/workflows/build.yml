@@ -1,0 +1,53 @@
+name: Build
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS
+            os: macos-latest
+          - name: Windows
+            os: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clone JUCE
+        run: git clone --depth 1 --branch 8.0.4 https://github.com/juce-framework/JUCE.git JUCE
+
+      - name: Configure
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build plugin
+        run: cmake --build build --config Release --target LoopFinder_All --parallel
+
+      - name: Build and run tests
+        run: |
+          cmake --build build --config Release --target LoopDetectorTests --parallel
+          ctest --test-dir build -C Release --output-on-failure
+
+      - name: Upload macOS bundles
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: LoopFinder-macOS
+          path: |
+            build/LoopFinder_artefacts/Release/VST3/LoopFinder.vst3
+            build/LoopFinder_artefacts/Release/AU/LoopFinder.component
+
+      - name: Upload Windows bundle
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: LoopFinder-Windows
+          path: build/LoopFinder_artefacts/Release/VST3/LoopFinder.vst3

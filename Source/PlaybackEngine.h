@@ -65,6 +65,14 @@ namespace lf
         void setGainDb (float db)                 noexcept;
         void setRootNote (int midiNote)           noexcept;
 
+        /** Global fine-tune in cents, applied to every voice's pitch ratio.
+         *  Lets the user retune an off-key sample (e.g. snap an 808 to C). */
+        void setTuneCents (float cents) noexcept
+        {
+            tuneCents.store (cents, std::memory_order_release);
+        }
+        float getTuneCents() const noexcept { return tuneCents.load (std::memory_order_acquire); }
+
         // ---------------------------------------------------------------------
         // UI-thread getters (lock-free)
         // ---------------------------------------------------------------------
@@ -148,6 +156,7 @@ namespace lf
         std::atomic<bool>  loopFlag    { true  };
         std::atomic<float> gainDb      { 0.0f };
         std::atomic<int>   rootNote    { 60 };  // C4
+        std::atomic<float> tuneCents   { 0.0f };
 
         std::atomic<bool>  midiIntroFromFileStartEnabled { false };
 

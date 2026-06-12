@@ -44,6 +44,9 @@ namespace lf
         thumbnailReady = false;
         invalidateWaveformCache();
 
+        selStartSample = -1;
+        selEndSample   = -1;
+
         const auto& meta = processor.getFileManager().getMetadata();
         if (! meta.isLoaded)
         {
@@ -117,7 +120,7 @@ namespace lf
 
     void WaveformDisplay::paint (juce::Graphics& g)
     {
-        g.fillAll (theme::background);
+        g.fillAll (theme::backgroundDeep);
 
         const auto main     = getMainArea();
         const auto ruler    = getRulerArea();
@@ -125,10 +128,23 @@ namespace lf
 
         if (totalSamples <= 0)
         {
+            // Empty state — dashed drop target with a hint.
+            auto box = main.toFloat().reduced (28.0f);
+            g.setColour (theme::border);
+            float dash[] { 6.0f, 6.0f };
+            juce::Path outline;
+            outline.addRoundedRectangle (box, 10.0f);
+            juce::PathStrokeType (1.2f).createDashedStroke (outline, outline, dash, 2);
+            g.fillPath (outline);
+
             g.setColour (theme::textSecondary);
-            g.setFont (theme::body());
-            g.drawText ("Drag and drop an audio file here, or use Load File",
-                        main, juce::Justification::centred);
+            g.setFont (juce::Font (15.0f, juce::Font::bold));
+            g.drawText ("Drop an audio file here",
+                        main.withTrimmedBottom (24), juce::Justification::centred);
+            g.setColour (theme::textDim);
+            g.setFont (theme::label());
+            g.drawText ("WAV / AIFF / FLAC / MP3  -  or use Load File",
+                        main.withTrimmedTop (24), juce::Justification::centred);
             return;
         }
 
@@ -153,11 +169,20 @@ namespace lf
                          false);
 
         // ---- live overlays ----
+        drawSearchSelection (g, main);
         drawRegions   (g, main);
         drawPlayhead  (g, main);
         drawTimeRuler (g, ruler);
         drawOverview  (g, overview);
         drawDragLabel (g);
+
+        // Inner shadow below the header bar for a sense of depth.
+        {
+            juce::ColourGradient shadow (juce::Colours::black.withAlpha (0.25f), 0.0f, 0.0f,
+                                         juce::Colours::transparentBlack, 0.0f, 9.0f, false);
+            g.setGradientFill (shadow);
+            g.fillRect (juce::Rectangle<int> (0, 0, getWidth(), 9));
+        }
     }
 
     void WaveformDisplay::renderWaveformCache (juce::Rectangle<int> area)
@@ -182,6 +207,10 @@ namespace lf
         g.addTransform (juce::AffineTransform::scale (scale));
 
         const juce::Rectangle<int> local (0, 0, area.getWidth(), area.getHeight());
+
+        // Quiet centre line behind the waveform.
+        g.setColour (theme::borderSoft);
+        g.fillRect (0.0f, (float) local.getCentreY(), (float) local.getWidth(), 1.0f);
 
         if (samplesPerPixel() < 4.0)
             drawWaveformHighZoom (g, local);
@@ -235,8 +264,18 @@ namespace lf
             filled.lineTo ((float) (area.getX() + x), midY - mins[(size_t) x] * amp);
         filled.closeSubPath();
 
-        g.setColour (theme::waveformFill.withAlpha (0.85f));
-        g.fillPath (filled);
+        // Vertical gradient: warm and bright along the centre line, falling
+        // off toward the peaks — gives the waveform a lit-from-within look.
+        {
+            const float top = (float) area.getY();
+            const float bot = (float) area.getBottom();
+            juce::ColourGradient grad (theme::waveformFill.withAlpha (0.55f), 0.0f, top,
+                                       theme::waveformFill.withAlpha (0.55f), 0.0f, bot,
+                                       false);
+            grad.addColour (0.5, theme::waveformOutline.withAlpha (0.95f));
+            g.setGradientFill (grad);
+            g.fillPath (filled);
+        }
 
         // Outline the top and bottom envelopes for crisper edges. Thin (0.8 px)
         // stroke + anti-aliasing avoids the chunky look of bar rendering.
@@ -319,6 +358,57 @@ namespace lf
                                             juce::PathStrokeType::rounded));
     }
 
+    void WaveformDisplay::drawSearchSelection (juce::Graphics& g, juce::Rectangle<int> area)
+    {
+        // Live preview while dragging a new selection.
+        int s = selStartSample, e = selEndSample;
+        if (dragMode == DragMode::SelectRange)
+        {
+            s = std::min (selAnchorSample, currentDragSample);
+            e = std::max (selAnchorSample, currentDragSample);
+        }
+        else if (dragMode == DragMode::DragSelLeft)  { s = std::min (currentDragSample, selEndSample); e = std::max (currentDragSample, selEndSample); }
+        else if (dragMode == DragMode::DragSelRight) { s = std::min (selStartSample, currentDragSample); e = std::max (selStartSample, currentDragSample); }
+
+        if (s < 0 || e <= s) return;
+
+        const int x0 = juce::jlimit (area.getX(), area.getRight(), sampleToPixel (s));
+        const int x1 = juce::jlimit (area.getX(), area.getRight(), sampleToPixel (e));
+
+        // Dim everything *outside* the highlighted search range so the
+        // chosen section reads as "in focus".
+        g.setColour (juce::Colours::black.withAlpha (0.38f));
+        if (x0 > area.getX())
+            g.fillRect (juce::Rectangle<int> (area.getX(), area.getY(),
+                                              x0 - area.getX(), area.getHeight()));
+        if (x1 < area.getRight())
+            g.fillRect (juce::Rectangle<int> (x1, area.getY(),
+                                              area.getRight() - x1, area.getHeight()));
+
+        // Soft tint + edges on the selection itself.
+        g.setColour (theme::accent.withAlpha (0.07f));
+        g.fillRect (juce::Rectangle<int> (x0, area.getY(), std::max (1, x1 - x0), area.getHeight()));
+
+        g.setColour (theme::accent.withAlpha (0.9f));
+        g.fillRect (juce::Rectangle<int> (x0 - 1, area.getY(), 2, area.getHeight()));
+        g.fillRect (juce::Rectangle<int> (x1 - 1, area.getY(), 2, area.getHeight()));
+
+        // Little grab handles at the vertical centre of each edge.
+        const int hy = area.getCentreY();
+        g.fillRoundedRectangle ((float) x0 - 3.0f, (float) hy - 10.0f, 6.0f, 20.0f, 3.0f);
+        g.fillRoundedRectangle ((float) x1 - 3.0f, (float) hy - 10.0f, 6.0f, 20.0f, 3.0f);
+
+        // Label at the top of the selection.
+        if (x1 - x0 > 70)
+        {
+            g.setFont (theme::label());
+            g.setColour (theme::accent);
+            g.drawText ("LOOP SEARCH AREA",
+                        juce::Rectangle<int> (x0 + 6, area.getY() + 4, x1 - x0 - 12, 14),
+                        juce::Justification::topLeft);
+        }
+    }
+
     void WaveformDisplay::drawRegions (juce::Graphics& g, juce::Rectangle<int> area)
     {
         for (int i = 0; i < (int) regions.size(); ++i)
@@ -331,21 +421,25 @@ namespace lf
             const auto col = theme::regionColour (i);
             const bool sel = (i == selectedRegion);
 
-            // Translucent body
-            g.setColour (col.withAlpha (sel ? 0.45f : 0.30f));
+            // Translucent body — the selected loop is clearly filled, the
+            // other candidates stay quiet so overlaps don't muddy the view.
+            g.setColour (col.withAlpha (sel ? 0.32f : 0.10f));
             g.fillRect (juce::Rectangle<int> (x0, area.getY(),
                                               std::max (1, x1 - x0), area.getHeight()));
 
             // Boundaries
-            g.setColour (col.withAlpha (1.0f));
-            g.fillRect (juce::Rectangle<int> (x0 - 1, area.getY(), 2, area.getHeight()));
-            g.fillRect (juce::Rectangle<int> (x1 - 1, area.getY(), 2, area.getHeight()));
+            g.setColour (col.withAlpha (sel ? 1.0f : 0.55f));
+            const int edgeW = sel ? 2 : 1;
+            g.fillRect (juce::Rectangle<int> (x0 - edgeW / 2, area.getY(), edgeW, area.getHeight()));
+            g.fillRect (juce::Rectangle<int> (x1 - edgeW / 2, area.getY(), edgeW, area.getHeight()));
 
-            // Number badge
-            g.setColour (col.darker (0.4f));
-            const auto badge = juce::Rectangle<int> (x0 + 4, area.getY() + 4, 18, 16);
+            // Number badge — staggered vertically so overlapping candidates
+            // don't pile up on one row.
+            const int badgeY = area.getY() + 4 + (i % 4) * 19;
+            g.setColour (col.darker (sel ? 0.2f : 0.5f));
+            const auto badge = juce::Rectangle<int> (x0 + 4, badgeY, 18, 16);
             g.fillRoundedRectangle (badge.toFloat(), 3.0f);
-            g.setColour (theme::textPrimary);
+            g.setColour (sel ? theme::textPrimary : theme::textPrimary.withAlpha (0.75f));
             g.setFont (theme::label());
             g.drawText (juce::String (i + 1), badge, juce::Justification::centred);
         }
@@ -357,6 +451,10 @@ namespace lf
         const int pos = processor.getPlayback().getPlayheadSourcePos();
         const int px  = sampleToPixel (pos);
         if (px < area.getX() || px > area.getRight()) return;
+
+        // Soft glow either side of a crisp 1px line.
+        g.setColour (theme::accentBright.withAlpha (0.18f));
+        g.fillRect (juce::Rectangle<int> (px - 2, area.getY(), 5, area.getHeight()));
         g.setColour (theme::playhead);
         g.fillRect (juce::Rectangle<int> (px, area.getY(), 1, area.getHeight()));
     }
@@ -384,8 +482,8 @@ namespace lf
         double step = steps[std::size (steps) - 1];
         for (auto s : steps) if (s >= targetSec) { step = s; break; }
 
-        g.setColour (theme::textSecondary);
-        g.setFont (juce::Font (10.0f));
+        g.setColour (theme::textDim);
+        g.setFont (theme::mono (9.5f));
 
         const double startSec = viewStart / sourceSampleRate;
         const double endSec   = startSec + area.getWidth() * secondsPerPixel;
@@ -423,7 +521,20 @@ namespace lf
                                 static_cast<double> (totalSamples) / sourceSampleRate,
                                 0.95f);
 
-        // Region marks
+        // Search-selection marker in the overview.
+        if (hasSearchSelection())
+        {
+            const auto sx0 = juce::jmap ((double) selStartSample, 0.0, (double) totalSamples,
+                                         (double) inner.getX(), (double) inner.getRight());
+            const auto sx1 = juce::jmap ((double) selEndSample,   0.0, (double) totalSamples,
+                                         (double) inner.getX(), (double) inner.getRight());
+            g.setColour (theme::accent.withAlpha (0.22f));
+            g.fillRect (juce::Rectangle<float> ((float) sx0, (float) inner.getY(),
+                                                std::max (2.0f, (float) (sx1 - sx0)),
+                                                (float) inner.getHeight()));
+        }
+
+        // Region marks — same emphasis rules as the main view.
         for (int i = 0; i < (int) regions.size(); ++i)
         {
             const auto& r = regions[(size_t) i];
@@ -432,7 +543,7 @@ namespace lf
                                         (double) inner.getX(), (double) inner.getRight());
             const auto x1 = juce::jmap ((double) r.endSample,   0.0, (double) totalSamples,
                                         (double) inner.getX(), (double) inner.getRight());
-            g.setColour (col.withAlpha (0.55f));
+            g.setColour (col.withAlpha (i == selectedRegion ? 0.55f : 0.18f));
             g.fillRect (juce::Rectangle<float> ((float) x0, (float) inner.getY(),
                                                 std::max (1.0f, (float) (x1 - x0)),
                                                 (float) inner.getHeight()));
@@ -457,16 +568,39 @@ namespace lf
 
     void WaveformDisplay::drawDragLabel (juce::Graphics& g)
     {
-        if (dragMode != DragMode::DragLeftEdge && dragMode != DragMode::DragRightEdge)
+        const bool edgeDrag = dragMode == DragMode::DragLeftEdge
+                           || dragMode == DragMode::DragRightEdge;
+        const bool selDrag  = dragMode == DragMode::SelectRange
+                           || dragMode == DragMode::DragSelLeft
+                           || dragMode == DragMode::DragSelRight;
+        if (! edgeDrag && ! selDrag)
             return;
 
         const auto x = sampleToPixel (currentDragSample);
         const auto y = lastMousePos.getY();
         const auto timeMs = (double) currentDragSample * 1000.0 / sourceSampleRate;
 
-        const juce::String text =
-            "sample " + juce::String (currentDragSample) +
-            "  •  " + juce::String (timeMs, 2) + " ms";
+        juce::String text;
+        if (selDrag)
+        {
+            int s = currentDragSample, e = currentDragSample;
+            if (dragMode == DragMode::SelectRange)
+            {
+                s = std::min (selAnchorSample, currentDragSample);
+                e = std::max (selAnchorSample, currentDragSample);
+            }
+            else if (dragMode == DragMode::DragSelLeft)  { s = std::min (currentDragSample, selEndSample);   e = std::max (currentDragSample, selEndSample); }
+            else                                          { s = std::min (selStartSample, currentDragSample); e = std::max (selStartSample, currentDragSample); }
+
+            text = juce::String (s * 1000.0 / sourceSampleRate, 0) + " - "
+                 + juce::String (e * 1000.0 / sourceSampleRate, 0) + " ms"
+                 + "  |  " + juce::String ((e - s) * 1000.0 / sourceSampleRate, 0) + " ms wide";
+        }
+        else
+        {
+            text = "sample " + juce::String (currentDragSample)
+                 + "  |  " + juce::String (timeMs, 2) + " ms";
+        }
 
         g.setFont (theme::label());
         const auto w = g.getCurrentFont().getStringWidth (text) + 12;
@@ -536,7 +670,16 @@ namespace lf
         if (! getMainArea().contains (pos))
             return { HitKind::None, -1 };
 
-        // Boundaries take priority over body.
+        // Search-selection edges take top priority — they're the rarest target.
+        if (hasSearchSelection())
+        {
+            const int xL = sampleToPixel (selStartSample);
+            const int xR = sampleToPixel (selEndSample);
+            if (std::abs (pos.x - xL) <= edgeGrabPixels) return { HitKind::SelectionLeft,  -1 };
+            if (std::abs (pos.x - xR) <= edgeGrabPixels) return { HitKind::SelectionRight, -1 };
+        }
+
+        // Region boundaries take priority over body.
         for (int i = 0; i < (int) regions.size(); ++i)
         {
             const auto& r = regions[(size_t) i];
@@ -564,11 +707,12 @@ namespace lf
         const auto hit = hitTestAt (e.getPosition());
         switch (hit.kind)
         {
+            case HitKind::SelectionLeft:
+            case HitKind::SelectionRight:
             case HitKind::RegionLeft:
             case HitKind::RegionRight: setMouseCursor (juce::MouseCursor::LeftRightResizeCursor); break;
             case HitKind::RegionBody:  setMouseCursor (juce::MouseCursor::PointingHandCursor);    break;
-            case HitKind::EmptyArea:   setMouseCursor (zoom > 1.01 ? juce::MouseCursor::DraggingHandCursor
-                                                                   : juce::MouseCursor::NormalCursor); break;
+            case HitKind::EmptyArea:   setMouseCursor (juce::MouseCursor::IBeamCursor);           break;
             case HitKind::None:        setMouseCursor (juce::MouseCursor::NormalCursor); break;
         }
 
@@ -576,7 +720,7 @@ namespace lf
         {
             const int s = pixelToSample (e.x);
             setTooltip ("sample " + juce::String (s)
-                       + "  •  " + juce::String (s * 1000.0 / sourceSampleRate, 2) + " ms");
+                       + "  |  " + juce::String (s * 1000.0 / sourceSampleRate, 2) + " ms");
         }
     }
 
@@ -586,9 +730,27 @@ namespace lf
         clickWasOnRegion = false;
         clickRegionIndex = -1;
 
+        // Click / drag in the overview strip scrubs the viewport.
+        if (getOverviewArea().contains (e.getPosition()) && totalSamples > 0)
+        {
+            dragMode = DragMode::OverviewNav;
+            navigateOverviewTo (e.x);
+            return;
+        }
+
         const auto hit = hitTestAt (e.getPosition());
         switch (hit.kind)
         {
+            case HitKind::SelectionLeft:
+                dragMode = DragMode::DragSelLeft;
+                currentDragSample = selStartSample;
+                break;
+
+            case HitKind::SelectionRight:
+                dragMode = DragMode::DragSelRight;
+                currentDragSample = selEndSample;
+                break;
+
             case HitKind::RegionLeft:
                 dragMode = DragMode::DragLeftEdge;
                 dragRegionIndex = hit.regionIndex;
@@ -610,9 +772,20 @@ namespace lf
                 break;
 
             case HitKind::EmptyArea:
-                dragMode        = DragMode::PanView;
-                dragStartMouseX = e.x;
-                dragStartView   = viewStart;
+                if (e.mods.isAltDown() || e.mods.isMiddleButtonDown())
+                {
+                    // Alt-drag (or middle button) pans the zoomed view.
+                    dragMode        = DragMode::PanView;
+                    dragStartMouseX = e.x;
+                    dragStartView   = viewStart;
+                }
+                else
+                {
+                    // Plain drag highlights the loop search range.
+                    dragMode          = DragMode::SelectRange;
+                    selAnchorSample   = juce::jlimit (0, totalSamples, pixelToSample (e.x));
+                    currentDragSample = selAnchorSample;
+                }
                 break;
 
             case HitKind::None:
@@ -650,6 +823,18 @@ namespace lf
                 repaint();
                 break;
             }
+            case DragMode::SelectRange:
+            case DragMode::DragSelLeft:
+            case DragMode::DragSelRight:
+            {
+                currentDragSample = std::clamp (pixelToSample (e.x), 0, totalSamples);
+                repaint();
+                break;
+            }
+            case DragMode::OverviewNav:
+                navigateOverviewTo (e.x);
+                break;
+
             case DragMode::None:
                 if (e.getDistanceFromDragStart() > 4)
                     clickWasOnRegion = false;
@@ -657,7 +842,7 @@ namespace lf
         }
     }
 
-    void WaveformDisplay::mouseUp (const juce::MouseEvent&)
+    void WaveformDisplay::mouseUp (const juce::MouseEvent& e)
     {
         if (clickWasOnRegion && clickRegionIndex >= 0 && callbacks.onRegionSelected)
             callbacks.onRegionSelected (clickRegionIndex);
@@ -676,9 +861,64 @@ namespace lf
                 callbacks.onRegionEdited (dragRegionIndex, r.startSample, r.endSample);
         }
 
+        if (dragMode == DragMode::SelectRange)
+        {
+            if (e.getDistanceFromDragStart() <= 4)
+            {
+                // A plain click clears the highlight — back to whole-file search.
+                selStartSample = -1;
+                selEndSample   = -1;
+            }
+            else
+            {
+                selStartSample = std::min (selAnchorSample, currentDragSample);
+                selEndSample   = std::max (selAnchorSample, currentDragSample);
+            }
+            notifySearchRangeChanged();
+        }
+        else if (dragMode == DragMode::DragSelLeft || dragMode == DragMode::DragSelRight)
+        {
+            const int fixedEdge = dragMode == DragMode::DragSelLeft ? selEndSample
+                                                                    : selStartSample;
+            selStartSample = std::min (fixedEdge, currentDragSample);
+            selEndSample   = std::max (fixedEdge, currentDragSample);
+            if (selEndSample - selStartSample < 16)
+            {
+                selStartSample = -1;
+                selEndSample   = -1;
+            }
+            notifySearchRangeChanged();
+        }
+
         dragMode = DragMode::None;
         dragRegionIndex = -1;
         clickWasOnRegion = false;
+        repaint();
+    }
+
+    void WaveformDisplay::notifySearchRangeChanged()
+    {
+        if (callbacks.onSearchRangeChanged)
+        {
+            if (hasSearchSelection())
+                callbacks.onSearchRangeChanged (selStartSample, selEndSample);
+            else
+                callbacks.onSearchRangeChanged (-1, -1);
+        }
+    }
+
+    void WaveformDisplay::navigateOverviewTo (int mouseX)
+    {
+        const auto inner = getOverviewArea().reduced (4, 6);
+        if (inner.getWidth() <= 0 || totalSamples <= 0) return;
+
+        const double frac   = juce::jlimit (0.0, 1.0,
+                                            (double) (mouseX - inner.getX()) / (double) inner.getWidth());
+        const double centre = frac * (double) totalSamples;
+        const double visible = getMainArea().getWidth() * samplesPerPixel();
+        viewStart = centre - visible * 0.5;
+        clampView();
+        invalidateWaveformCache();
         repaint();
     }
 

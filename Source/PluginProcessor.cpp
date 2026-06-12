@@ -33,6 +33,15 @@ namespace lf
                 "MIDI from start",
                 false));
 
+            p.push_back (std::make_unique<juce::AudioParameterFloat> (
+                juce::ParameterID { "tuneCents", 1 },
+                "Tune",
+                juce::NormalisableRange<float> (-1200.0f, 1200.0f, 1.0f), 0.0f,
+                juce::AudioParameterFloatAttributes()
+                    .withLabel ("ct")
+                    .withStringFromValueFunction ([] (float v, int) {
+                        return juce::String ((int) v) + " ct"; })));
+
             return { p.begin(), p.end() };
         }
     }
@@ -50,6 +59,7 @@ namespace lf
         apvts.addParameterListener ("gainDb",        this);
         apvts.addParameterListener ("rootNote",      this);
         apvts.addParameterListener ("midiFromStart", this);
+        apvts.addParameterListener ("tuneCents",     this);
 
         if (auto* p = apvts.getRawParameterValue ("gainDb"))
             playback.setGainDb (p->load());
@@ -57,6 +67,8 @@ namespace lf
             playback.setRootNote (static_cast<int> (p->load()));
         if (auto* p = apvts.getRawParameterValue ("midiFromStart"))
             playback.setMidiIntroFromFileStartEnabled (p->load() > 0.5f);
+        if (auto* p = apvts.getRawParameterValue ("tuneCents"))
+            playback.setTuneCents (p->load());
 
         thumbThread.startThread (juce::Thread::Priority::low);
 
@@ -71,7 +83,13 @@ namespace lf
         apvts.removeParameterListener ("gainDb",        this);
         apvts.removeParameterListener ("rootNote",      this);
         apvts.removeParameterListener ("midiFromStart", this);
+        apvts.removeParameterListener ("tuneCents",     this);
         cancelAnalysis();
+        if (pitchFuture.valid())
+        {
+            try { pitchFuture.get(); }
+            catch (...) {}
+        }
         thumbThread.stopThread (1000);
     }
 
@@ -81,6 +99,7 @@ namespace lf
         if      (paramID == "gainDb")        playback.setGainDb (newValue);
         else if (paramID == "rootNote")      playback.setRootNote (static_cast<int> (newValue));
         else if (paramID == "midiFromStart") playback.setMidiIntroFromFileStartEnabled (newValue > 0.5f);
+        else if (paramID == "tuneCents")     playback.setTuneCents (newValue);
     }
 
     // -------------------------------------------------------------------------
@@ -170,10 +189,16 @@ namespace lf
             apvts.replaceState (state);
 
         // Audio file (must happen while suspended for clean buffer swap)
+        if (pitchFuture.valid())
+        {
+            try { pitchFuture.get(); }
+            catch (...) {}
+        }
         suspendProcessing (true);
         fileManager.fromValueTree (root.getChildWithName ("AudioFile"));
         rebuildPlaybackSource();
         suspendProcessing (false);
+        startPitchDetection();
 
         // Regions
         std::vector<LoopRegion> loaded;
@@ -210,6 +235,13 @@ namespace lf
     bool LoopFinderProcessor::loadFile (const juce::File& file)
     {
         cancelAnalysis();
+        // Let any in-flight pitch-detection job finish before the mono mix
+        // it reads from is replaced.
+        if (pitchFuture.valid())
+        {
+            try { pitchFuture.get(); }
+            catch (...) {}
+        }
         suspendProcessing (true);
         const bool ok = fileManager.loadFile (file);
         rebuildPlaybackSource();
@@ -218,13 +250,85 @@ namespace lf
             regions.clear();
         }
         selectedRegion.store (-1);
+        searchRangeStart.store (-1);
+        searchRangeEnd.store (-1);
         playback.clearRegion();
         playback.releaseAllVoices();
         suspendProcessing (false);
 
+        startPitchDetection();
+
         notifyState();
         notifyRegions();
         return ok;
+    }
+
+    void LoopFinderProcessor::startPitchDetection()
+    {
+        if (! fileManager.isLoaded())
+        {
+            detectedMidiNote.store (-1.0f);
+            detectedHz.store (0.0f);
+            return;
+        }
+
+        pitchFuture = std::async (std::launch::async, [this]
+        {
+            PitchDetector::Settings ps;
+            ps.sampleRate = static_cast<float> (fileManager.getMetadata().sampleRate);
+
+            const auto& mono = fileManager.getMonoMix();
+            const auto r = PitchDetector::detect (mono.data(), (int) mono.size(), ps);
+
+            if (r.isValid())
+            {
+                detectedMidiNote.store (r.midiNote);
+                detectedHz.store (r.frequencyHz);
+            }
+            else
+            {
+                detectedMidiNote.store (-1.0f);
+                detectedHz.store (0.0f);
+            }
+            stateChangedNotifier.triggerAsyncUpdate();
+        });
+    }
+
+    juce::String LoopFinderProcessor::getDetectedKeyText() const
+    {
+        const float midi = detectedMidiNote.load();
+        if (midi < 0.0f)
+            return {};
+
+        const int nearest = (int) std::lround (midi);
+        const int cents   = (int) std::lround ((midi - (float) nearest) * 100.0f);
+
+        auto text = juce::MidiMessage::getMidiNoteName (nearest, true, true, 4);
+        if (cents != 0)
+            text += (cents > 0 ? " +" : " -") + juce::String (std::abs (cents));
+        return text;
+    }
+
+    float LoopFinderProcessor::tuneDetectedToC()
+    {
+        const float midi = detectedMidiNote.load();
+        if (midi < 0.0f)
+            return 0.0f;
+
+        // Shift (in semitones) from the detected fundamental to the nearest C.
+        float pitchClass = std::fmod (midi, 12.0f);
+        if (pitchClass < 0.0f) pitchClass += 12.0f;
+        const float deltaSemis = pitchClass <= 6.0f ? -pitchClass
+                                                    : 12.0f - pitchClass;
+        const float cents = deltaSemis * 100.0f;
+
+        if (auto* param = apvts.getParameter ("tuneCents"))
+        {
+            param->beginChangeGesture();
+            param->setValueNotifyingHost (param->convertTo0to1 (cents));
+            param->endChangeGesture();
+        }
+        return cents;
     }
 
     void LoopFinderProcessor::rebuildPlaybackSource()
@@ -295,6 +399,20 @@ namespace lf
         playback.setRegion (r.startSample, r.endSample, K);
     }
 
+    void LoopFinderProcessor::setSearchRange (int startSample, int endSample)
+    {
+        if (startSample >= 0 && endSample > startSample)
+        {
+            searchRangeStart.store (startSample);
+            searchRangeEnd.store (endSample);
+        }
+        else
+        {
+            searchRangeStart.store (-1);
+            searchRangeEnd.store (-1);
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Analysis
     // -------------------------------------------------------------------------
@@ -329,6 +447,16 @@ namespace lf
         {
             LoopDetector::Settings s;
             s.sampleRate = static_cast<float> (fileManager.getMetadata().sampleRate);
+
+            const int rangeStart = searchRangeStart.load();
+            const int rangeEnd   = searchRangeEnd.load();
+            const bool useRange  = rangeStart >= 0 && rangeEnd > rangeStart;
+            lastAnalysisHadRange.store (useRange);
+            if (useRange)
+            {
+                s.searchStartSample = rangeStart;
+                s.searchEndSample   = rangeEnd;
+            }
 
             const auto& mono = fileManager.getMonoMix();
             auto found = detector.analyze (

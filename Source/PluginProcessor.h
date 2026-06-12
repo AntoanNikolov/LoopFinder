@@ -3,6 +3,7 @@
 #include "AudioFileManager.h"
 #include "LoopDetector.h"
 #include "LoopRegion.h"
+#include "PitchDetector.h"
 #include "PlaybackEngine.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
@@ -73,6 +74,40 @@ namespace lf
         bool isAnalysing() const noexcept       { return analysing.load(); }
         float getAnalysisProgress() const noexcept { return analysisProgress.load(); }
 
+        /** User-highlighted search range (samples). Pass (-1, -1) to clear.
+         *  When set, the next analysis only looks for loops inside it.
+         */
+        void setSearchRange (int startSample, int endSample);
+        int  getSearchRangeStart() const noexcept { return searchRangeStart.load(); }
+        int  getSearchRangeEnd()   const noexcept { return searchRangeEnd.load(); }
+        bool hasSearchRange() const noexcept
+        {
+            return searchRangeStart.load() >= 0
+                && searchRangeEnd.load() > searchRangeStart.load();
+        }
+
+        /** True if the most recent analysis was restricted to a highlight. */
+        bool lastAnalysisUsedRange() const noexcept { return lastAnalysisHadRange.load(); }
+
+        // ---------------------------------------------------------------------
+        // Key detection / tuning
+        // ---------------------------------------------------------------------
+        /** Fractional MIDI note of the sample's fundamental, or < 0 if the
+         *  key hasn't been (or couldn't be) detected. Runs automatically
+         *  after every file load.
+         */
+        float getDetectedMidiNote() const noexcept { return detectedMidiNote.load(); }
+        float getDetectedHz()       const noexcept { return detectedHz.load(); }
+        bool  hasDetectedKey()      const noexcept { return detectedMidiNote.load() >= 0.0f; }
+
+        /** Human-readable key, e.g. "F1 +23ct", or empty when undetected. */
+        juce::String getDetectedKeyText() const;
+
+        /** Set the tune parameter so the detected fundamental lands exactly on
+         *  the nearest C. Returns the applied shift in cents, or 0 with no
+         *  detection. */
+        float tuneDetectedToC();
+
         std::vector<LoopRegion> getRegions() const;
         int  getSelectedRegion() const noexcept { return selectedRegion.load(); }
         void setSelectedRegion (int idx);
@@ -104,6 +139,7 @@ namespace lf
         void rebuildPlaybackSource();
 
         void runAnalysisJob();
+        void startPitchDetection();
 
         // juce::AudioProcessorValueTreeState::Listener
         void parameterChanged (const juce::String& paramID, float newValue) override;
@@ -135,6 +171,16 @@ namespace lf
         std::atomic<bool>             analysing        { false };
         std::atomic<bool>             analysisCancel   { false };
         std::atomic<float>            analysisProgress { 0.0f };
+
+        // User-highlighted search range (-1 = none).
+        std::atomic<int>              searchRangeStart { -1 };
+        std::atomic<int>              searchRangeEnd   { -1 };
+        std::atomic<bool>             lastAnalysisHadRange { false };
+
+        // Key detection (background job started on every file load).
+        std::future<void>             pitchFuture;
+        std::atomic<float>            detectedMidiNote { -1.0f };
+        std::atomic<float>            detectedHz       { 0.0f };
 
         // Listeners (UI-thread only).
         juce::ListenerList<Listener>  listeners;

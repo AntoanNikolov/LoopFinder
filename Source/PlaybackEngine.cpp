@@ -131,7 +131,8 @@ namespace lf
 
         const int referenceNote = (midiNote == previewNoteMagic ? rootNote.load() : midiNote);
         const int delta = referenceNote - rootNote.load();
-        v.pitchRatio  = std::pow (2.0, static_cast<double> (delta) / 12.0);
+        const double tune = (double) tuneCents.load (std::memory_order_acquire) / 100.0;
+        v.pitchRatio  = std::pow (2.0, (static_cast<double> (delta) + tune) / 12.0);
         v.active.store (true, std::memory_order_release);
     }
 

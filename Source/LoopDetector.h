@@ -46,6 +46,19 @@ namespace lf
             float periodTolerance    { 0.10f };       // ±10% period match
             int   minWindowSamples   { 64 };          // floor for correlation window
             int   maxResults         { 8 };           // max regions returned
+
+            // Optional user-defined search range (in samples). When both are
+            // set (start >= 0 and end > start) the search is restricted to
+            // [searchStartSample, searchEndSample) and the boundaryFraction
+            // dead zone is NOT applied — the user's highlight wins, allowing
+            // loops near the start of the file where the level is still hot.
+            int   searchStartSample  { -1 };
+            int   searchEndSample    { -1 };
+
+            bool hasSearchRange() const noexcept
+            {
+                return searchStartSample >= 0 && searchEndSample > searchStartSample;
+            }
         };
 
         using ProgressFn = std::function<void (float /* 0..1 */)>;

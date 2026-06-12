@@ -8,7 +8,9 @@
 #include <juce_core/juce_core.h>
 
 #include "LoopDetector.h"
+#include "PitchDetector.h"
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <vector>
@@ -177,7 +179,109 @@ public:
 };
 
 // =============================================================================
-// Test 5 — performance: 10s file analyses in < 2000 ms.
+// Test 5 — user-defined search range restricts where loops are found.
+// =============================================================================
+class SearchRangeTest  : public juce::UnitTest
+{
+public:
+    SearchRangeTest() : juce::UnitTest ("LoopDetector — Search Range") {}
+
+    void runTest() override
+    {
+        constexpr double sr = 44100.0;
+
+        // First half: loud sine (loopable). Second half: silence.
+        auto sig = makeSine (110.0, 1.0, sr);
+        const int half = (int) sig.size() / 2;
+        std::fill (sig.begin() + half, sig.end(), 0.0f);
+
+        lf::LoopDetector det;
+        lf::LoopDetector::Settings s;
+        s.sampleRate     = static_cast<float> (sr);
+        s.minLoopMs      = 10.0f;
+        s.maxLoopMs      = 200.0f;
+        s.scoreThreshold = 0.9f;
+
+        beginTest ("Range over the loud first half finds loops inside the range");
+        s.searchStartSample = 0;
+        s.searchEndSample   = half;
+        const auto inRange = det.analyze (sig.data(), (int) sig.size(), s);
+        expect (! inRange.empty(), "Expected loops inside the highlighted range");
+        for (const auto& r : inRange)
+        {
+            expectGreaterOrEqual (r.startSample, s.searchStartSample);
+            expectLessOrEqual    (r.endSample,   s.searchEndSample);
+        }
+
+        beginTest ("Range over the silent second half finds nothing");
+        s.searchStartSample = half;
+        s.searchEndSample   = (int) sig.size();
+        const auto silent = det.analyze (sig.data(), (int) sig.size(), s);
+        expect (silent.empty(), "Silent range must produce zero regions");
+
+        beginTest ("Range allows loops earlier than the default 5% dead zone");
+        s.searchStartSample = 0;
+        s.searchEndSample   = (int) (sr * 0.2);   // first 200 ms only
+        const auto early = det.analyze (sig.data(), (int) sig.size(), s);
+        expect (! early.empty(), "Expected loops in the first 200 ms");
+        if (! early.empty())
+            expectLessThan (early.front().endSample, (int) (sr * 0.2) + 1);
+    }
+};
+
+// =============================================================================
+// Test 6 — pitch detection finds the key of the sample.
+// =============================================================================
+class PitchDetectionTest  : public juce::UnitTest
+{
+public:
+    PitchDetectionTest() : juce::UnitTest ("PitchDetector — Key Detection") {}
+
+    void runTest() override
+    {
+        constexpr double sr = 44100.0;
+        lf::PitchDetector::Settings s;
+        s.sampleRate = (float) sr;
+
+        beginTest ("110 Hz sine detects as A2 (MIDI 45)");
+        {
+            const auto sig = makeSine (110.0, 1.0, sr);
+            const auto r = lf::PitchDetector::detect (sig.data(), (int) sig.size(), s);
+            expect (r.isValid(), "Expected a pitch");
+            expectWithinAbsoluteError (r.frequencyHz, 110.0f, 1.0f);
+            expectEquals (r.nearestMidiNote(), 45);
+            expect (std::abs (r.centsOffset()) < 15.0f, "Should be close to in tune");
+        }
+
+        beginTest ("Decaying saturated 41.2 Hz sub (808-style) detects as E1 (MIDI 28)");
+        {
+            constexpr double freq = 41.2034;   // E1
+            const int n = (int) (sr * 2.0);
+            std::vector<float> sig ((size_t) n);
+            for (int i = 0; i < n; ++i)
+            {
+                const double t = i / sr;
+                const double env = 0.9 * std::exp (-t / 0.8);
+                sig[(size_t) i] = (float) (env * std::tanh (
+                    1.5 * std::sin (2.0 * pi * freq * t)));
+            }
+            const auto r = lf::PitchDetector::detect (sig.data(), n, s);
+            expect (r.isValid(), "Expected a pitch on the 808");
+            expectEquals (r.nearestMidiNote(), 28);
+            expect (std::abs (r.centsOffset()) < 20.0f, "808 should be near E1");
+        }
+
+        beginTest ("Silence detects nothing");
+        {
+            const std::vector<float> zeros (44100, 0.0f);
+            const auto r = lf::PitchDetector::detect (zeros.data(), (int) zeros.size(), s);
+            expect (! r.isValid(), "Silence must not produce a pitch");
+        }
+    }
+};
+
+// =============================================================================
+// Test 7 — performance: 10s file analyses in < 2000 ms.
 // =============================================================================
 class PerformanceTest  : public juce::UnitTest
 {
@@ -216,6 +320,8 @@ static SineWaveTest    sineWaveTest;
 static SilenceTest     silenceTest;
 static ShortFileTest   shortFileTest;
 static CrossfadeTest   crossfadeTest;
+static SearchRangeTest searchRangeTest;
+static PitchDetectionTest pitchDetectionTest;
 static PerformanceTest performanceTest;
 
 // -----------------------------------------------------------------------------

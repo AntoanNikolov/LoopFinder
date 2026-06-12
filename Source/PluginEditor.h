@@ -1,5 +1,6 @@
 #pragma once
 
+#include "LookAndFeel.h"
 #include "PluginProcessor.h"
 #include "RegionListPanel.h"
 #include "Theme.h"
@@ -82,6 +83,43 @@ namespace lf
         Icon iconKind { Icon::None };
     };
 
+    /** Small header chip that shows the detected key of the loaded sample. */
+    class KeyBadge  : public juce::Component,
+                      public juce::SettableTooltipClient
+    {
+    public:
+        void setKeyText (const juce::String& key)
+        {
+            if (keyText == key) return;
+            keyText = key;
+            repaint();
+        }
+
+        void paint (juce::Graphics& g) override
+        {
+            const auto bounds = getLocalBounds().toFloat().reduced (0.5f);
+            const bool hasKey = keyText.isNotEmpty();
+
+            g.setColour (theme::surfaceRaised);
+            g.fillRoundedRectangle (bounds, (float) theme::cornerRadius);
+            g.setColour (hasKey ? theme::accent.withAlpha (0.45f) : theme::border);
+            g.drawRoundedRectangle (bounds, (float) theme::cornerRadius, 1.0f);
+
+            auto area = getLocalBounds().reduced (9, 0);
+            g.setColour (theme::textDim);
+            g.setFont (theme::heading().withHeight (9.5f));
+            g.drawText ("KEY", area.removeFromLeft (26), juce::Justification::centredLeft);
+
+            g.setColour (hasKey ? theme::accentBright : theme::textDim);
+            g.setFont (theme::mono (12.0f));
+            g.drawText (hasKey ? keyText : juce::String ("--"),
+                        area, juce::Justification::centredRight);
+        }
+
+    private:
+        juce::String keyText;
+    };
+
     class LoopFinderEditor  : public juce::AudioProcessorEditor,
                               public juce::FileDragAndDropTarget,
                               private juce::Timer,
@@ -113,24 +151,33 @@ namespace lf
         void selectRegion (int idx);
         void auditionRegion (int idx);
         void editRegion (int idx, int newStart, int newEnd);
+        void searchRangeChanged (int startSample, int endSample);
 
         void updateFileInfo();
         void updateTransportEnablement();
+        void showMessage (const juce::String& text, juce::Colour colour);
+        void showHint();
 
         // Renamed from `processor` to avoid shadowing
         // juce::AudioProcessorEditor::processor.
         LoopFinderProcessor& proc;
 
+        LoopFinderLookAndFeel lookAndFeel;
+
         // UI elements
-        juce::Label       titleLabel;
         juce::TextButton  loadBtn     { "Load File" };
         juce::TextButton  analyzeBtn  { "Analyze"   };
+        KeyBadge          keyBadge;
+        juce::TextButton  tuneBtn     { "Tune to C" };
         TransportButton   playBtn          { TransportButton::Icon::Play, "Preview" };
         TransportButton   stopBtn          { TransportButton::Icon::Stop, "Stop"    };
         juce::ToggleButton midiFromStartBtn { "From start" };
         juce::ToggleButton loopBtn          { "Loop" };
         juce::Slider     volumeSlider;
         juce::Label      volumeLabel;
+
+        juce::Label      tuneLabel;
+        juce::Slider     tuneSlider;
 
         // Root-note ("which key plays the sample at its native pitch")
         juce::Label      rootLabel;
@@ -154,6 +201,7 @@ namespace lf
 
         std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   volumeAttach;
         std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   rootAttach;
+        std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   tuneAttach;
         std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>   midiFromStartAttach;
 
         std::unique_ptr<juce::FileChooser> currentChooser;

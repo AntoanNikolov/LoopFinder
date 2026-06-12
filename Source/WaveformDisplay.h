@@ -33,6 +33,11 @@ namespace lf
             std::function<void (int regionIndex)> onRegionSelected;
             std::function<void (int regionIndex, int newStart, int newEnd)> onRegionEdited;
             std::function<void (int regionIndex)> onRegionAuditioned;
+
+            /** Fired when the user highlights (or clears) the loop search
+             *  range. (-1, -1) means "cleared — search the whole file".
+             */
+            std::function<void (int startSample, int endSample)> onSearchRangeChanged;
         };
 
         explicit WaveformDisplay (LoopFinderProcessor& proc);
@@ -45,6 +50,8 @@ namespace lf
 
         /** Re-read the loaded audio source from the processor. */
         void refreshSource();
+
+        bool hasSearchSelection() const noexcept { return selStartSample >= 0 && selEndSample > selStartSample; }
 
         // ---------------------------------------------------------------------
         // Component overrides
@@ -82,7 +89,8 @@ namespace lf
         void zoomAt (int mouseX, double newZoom);
 
         // Hit testing
-        enum class HitKind { None, RegionLeft, RegionRight, RegionBody, EmptyArea };
+        enum class HitKind { None, SelectionLeft, SelectionRight,
+                             RegionLeft, RegionRight, RegionBody, EmptyArea };
         struct Hit
         {
             HitKind kind        { HitKind::None };
@@ -93,6 +101,7 @@ namespace lf
         // Drawing
         void drawWaveformLowZoom  (juce::Graphics&, juce::Rectangle<int> area);
         void drawWaveformHighZoom (juce::Graphics&, juce::Rectangle<int> area);
+        void drawSearchSelection  (juce::Graphics&, juce::Rectangle<int> area);
         void drawRegions          (juce::Graphics&, juce::Rectangle<int> area);
         void drawPlayhead         (juce::Graphics&, juce::Rectangle<int> area);
         void drawTimeRuler        (juce::Graphics&, juce::Rectangle<int> area);
@@ -127,14 +136,23 @@ namespace lf
         double zoom        { 1.0 };  // 1.0 → fits whole file; max 512.0
         double viewStart   { 0.0 };  // first visible sample (double for sub-sample pan)
 
+        // User-highlighted loop search range (samples; -1 = none).
+        int selStartSample { -1 };
+        int selEndSample   { -1 };
+
         // Mouse interaction state.
-        enum class DragMode { None, PanView, DragLeftEdge, DragRightEdge };
+        enum class DragMode { None, PanView, DragLeftEdge, DragRightEdge,
+                              SelectRange, DragSelLeft, DragSelRight, OverviewNav };
         DragMode dragMode  { DragMode::None };
         int      dragRegionIndex { -1 };
         int      dragStartMouseX { 0 };
         double   dragStartView   { 0.0 };
         int      dragOriginalEdge{ 0 };
         int      currentDragSample { 0 };
+        int      selAnchorSample   { 0 };
+
+        void notifySearchRangeChanged();
+        void navigateOverviewTo (int mouseX);
 
         bool clickWasOnRegion { false };
         int  clickRegionIndex { -1 };

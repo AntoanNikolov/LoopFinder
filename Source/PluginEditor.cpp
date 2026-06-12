@@ -5,6 +5,14 @@ namespace lf
     using SliderAttach = juce::AudioProcessorValueTreeState::SliderAttachment;
     using ButtonAttach = juce::AudioProcessorValueTreeState::ButtonAttachment;
 
+    namespace
+    {
+        constexpr int headerH   = 48;
+        constexpr int footerH   = 92;
+        constexpr int keyboardH = 84;
+        constexpr int rightW    = 250;
+    }
+
     // =========================================================================
     LoopFinderEditor::LoopFinderEditor (LoopFinderProcessor& p)
         : juce::AudioProcessorEditor (&p),
@@ -13,21 +21,40 @@ namespace lf
           regionList (p),
           keyboard (p.getKeyboardState(), juce::MidiKeyboardComponent::horizontalKeyboard)
     {
-        // Add ~84px of extra height to fit the on-screen MIDI keyboard.
-        setSize (theme::defaultWidth, theme::defaultHeight + 84);
+        setLookAndFeel (&lookAndFeel);
+        setSize (theme::defaultWidth, theme::defaultHeight + keyboardH);
         setResizable (false, false);
 
-        // Header
-        addAndMakeVisible (titleLabel);
-        titleLabel.setText ("LoopFinder", juce::dontSendNotification);
-        titleLabel.setFont (juce::Font (18.0f, juce::Font::bold));
-        titleLabel.setColour (juce::Label::textColourId, theme::textPrimary);
-
+        // Header buttons
         addAndMakeVisible (loadBtn);
         loadBtn.onClick = [this] { doLoadFile(); };
 
         addAndMakeVisible (analyzeBtn);
+        analyzeBtn.setColour (juce::TextButton::buttonColourId, theme::accent);
+        analyzeBtn.setColour (juce::TextButton::textColourOffId, theme::background);
+        analyzeBtn.setTooltip ("Search for seamless loop points. Drag on the waveform "
+                               "first to limit the search to a highlighted section.");
         analyzeBtn.onClick = [this] { doAnalyze(); };
+
+        // Detected key + tune-to-C
+        addAndMakeVisible (keyBadge);
+        keyBadge.setTooltip ("Detected key of the loaded sample (fundamental pitch).");
+
+        addAndMakeVisible (tuneBtn);
+        tuneBtn.setTooltip ("Retune the sample so its fundamental sits exactly on the "
+                            "nearest C. Fine-adjust with the Tune slider below.");
+        tuneBtn.onClick = [this]
+        {
+            const auto keyBefore = proc.getDetectedKeyText();
+            const float cents = proc.tuneDetectedToC();
+            if (! proc.hasDetectedKey()) return;
+            if (std::abs (cents) < 0.5f)
+                showMessage ("Sample is already on C.", theme::success);
+            else
+                showMessage ("Tuned " + keyBefore + " to C ("
+                             + (cents > 0 ? "+" : "") + juce::String ((int) cents) + " ct).",
+                             theme::success);
+        };
 
         // Transport row — Preview button synthesizes a held note at the root
         // pitch via the playback engine's preview channel.
@@ -59,10 +86,26 @@ namespace lf
 
         addAndMakeVisible (volumeSlider);
         volumeSlider.setSliderStyle (juce::Slider::LinearHorizontal);
-        volumeSlider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 60, 18);
+        volumeSlider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 64, 18);
         volumeSlider.setRange (-60.0, 6.0, 0.1);
-        volumeSlider.setTextValueSuffix (" dB");
+        // NB: no setTextValueSuffix — the parameter's text function already
+        // appends the unit, so a slider suffix would print it twice.
         volumeAttach = std::make_unique<SliderAttach> (proc.getApvts(), "gainDb", volumeSlider);
+
+        // Tune (cents) — double-click resets to 0
+        addAndMakeVisible (tuneLabel);
+        tuneLabel.setText ("Tune", juce::dontSendNotification);
+        tuneLabel.setFont (theme::label());
+        tuneLabel.setColour (juce::Label::textColourId, theme::textSecondary);
+
+        addAndMakeVisible (tuneSlider);
+        tuneSlider.setSliderStyle (juce::Slider::LinearHorizontal);
+        tuneSlider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 64, 18);
+        tuneSlider.setRange (-1200.0, 1200.0, 1.0);
+        tuneSlider.setDoubleClickReturnValue (true, 0.0);
+        tuneSlider.setTooltip ("Global tuning in cents (100 ct = 1 semitone). "
+                               "Double-click to reset.");
+        tuneAttach = std::make_unique<SliderAttach> (proc.getApvts(), "tuneCents", tuneSlider);
 
         // Root-note row
         addAndMakeVisible (rootLabel);
@@ -77,7 +120,7 @@ namespace lf
         rootAttach = std::make_unique<SliderAttach> (proc.getApvts(), "rootNote", rootSlider);
 
         addAndMakeVisible (rootValueLabel);
-        rootValueLabel.setFont (theme::label());
+        rootValueLabel.setFont (theme::mono (11.0f));
         rootValueLabel.setColour (juce::Label::textColourId, theme::textPrimary);
         rootValueLabel.setJustificationType (juce::Justification::centredRight);
         rootSlider.onValueChange = [this] {
@@ -94,40 +137,42 @@ namespace lf
         keyboard.setLowestVisibleKey (36);  // C2
         keyboard.setKeyWidth (16.0f);
         keyboard.setOctaveForMiddleC (4);
-        keyboard.setColour (juce::MidiKeyboardComponent::whiteNoteColourId,        juce::Colour (0xFFE6E6E6));
-        keyboard.setColour (juce::MidiKeyboardComponent::blackNoteColourId,        juce::Colour (0xFF1F1F1F));
+        keyboard.setColour (juce::MidiKeyboardComponent::whiteNoteColourId,        juce::Colour (0xFFEDE6D8));
+        keyboard.setColour (juce::MidiKeyboardComponent::blackNoteColourId,        juce::Colour (0xFF221E19));
         keyboard.setColour (juce::MidiKeyboardComponent::keySeparatorLineColourId, theme::border);
         keyboard.setColour (juce::MidiKeyboardComponent::mouseOverKeyOverlayColourId,
-                            theme::accent.withAlpha (0.4f));
+                            theme::accent.withAlpha (0.35f));
         keyboard.setColour (juce::MidiKeyboardComponent::keyDownOverlayColourId,
                             theme::accent.withAlpha (0.7f));
-        keyboard.setColour (juce::MidiKeyboardComponent::textLabelColourId, theme::textSecondary);
+        keyboard.setColour (juce::MidiKeyboardComponent::textLabelColourId, theme::textDim);
 
         // Status
         addAndMakeVisible (fileInfoLabel);
-        fileInfoLabel.setFont (theme::label());
+        fileInfoLabel.setFont (theme::mono (10.5f));
         fileInfoLabel.setColour (juce::Label::textColourId, theme::textSecondary);
 
         addAndMakeVisible (messageLabel);
         messageLabel.setFont (theme::label());
-        messageLabel.setColour (juce::Label::textColourId, theme::warning);
+        messageLabel.setColour (juce::Label::textColourId, theme::textSecondary);
         messageLabel.setJustificationType (juce::Justification::centredRight);
 
         addAndMakeVisible (progressBar);
         progressBar.setVisible (false);
+        progressBar.setPercentageDisplay (false);
 
         // Main panels
         addAndMakeVisible (waveform);
         WaveformDisplay::Callbacks wcb;
-        wcb.onRegionSelected   = [this] (int i) { selectRegion (i); };
-        wcb.onRegionEdited     = [this] (int i, int s, int e) { editRegion (i, s, e); };
-        wcb.onRegionAuditioned = [this] (int i) { auditionRegion (i); };
+        wcb.onRegionSelected      = [this] (int i) { selectRegion (i); };
+        wcb.onRegionEdited        = [this] (int i, int s, int e) { editRegion (i, s, e); };
+        wcb.onRegionAuditioned    = [this] (int i) { auditionRegion (i); };
+        wcb.onSearchRangeChanged  = [this] (int s, int e) { searchRangeChanged (s, e); };
         waveform.setCallbacks (wcb);
 
         addAndMakeVisible (regionList);
         RegionListPanel::Callbacks rcb;
         rcb.onSelect = [this] (int i) { selectRegion (i); };
-        rcb.onHover  = [] (int i) { /* could highlight in waveform — not yet */ juce::ignoreUnused (i); };
+        rcb.onHover  = [] (int i) { juce::ignoreUnused (i); };
         regionList.setCallbacks (rcb);
 
         proc.addLoopFinderListener (this);
@@ -135,6 +180,8 @@ namespace lf
 
         updateFileInfo();
         updateTransportEnablement();
+        keyBadge.setKeyText (proc.getDetectedKeyText());
+        showHint();
     }
 
     LoopFinderEditor::~LoopFinderEditor()
@@ -142,6 +189,7 @@ namespace lf
         stopTimer();
         proc.removeLoopFinderListener (this);
         if (currentChooser) currentChooser.reset();
+        setLookAndFeel (nullptr);
     }
 
     // -------------------------------------------------------------------------
@@ -151,78 +199,127 @@ namespace lf
     {
         g.fillAll (theme::background);
 
-        // Header background
-        const int headerH   = 40;
-        const int keyboardH = 84;
-        const int footerH   = 84;
-
-        g.setColour (theme::surface);
-        g.fillRect (juce::Rectangle<int> (0, 0, getWidth(), headerH));
+        // ---- Header bar (subtle vertical gradient + drop shadow) ----
+        {
+            juce::ColourGradient grad (theme::surface.brighter (0.05f), 0.0f, 0.0f,
+                                       theme::surface,                  0.0f, (float) headerH,
+                                       false);
+            g.setGradientFill (grad);
+            g.fillRect (juce::Rectangle<int> (0, 0, getWidth(), headerH));
+        }
         g.setColour (theme::border);
         g.drawHorizontalLine (headerH, 0.0f, (float) getWidth());
 
-        // Footer background (above the keyboard)
+        // Wordmark: amber loop glyph + two-tone name.
+        {
+            const float chipS = 22.0f;
+            const float chipX = 14.0f;
+            const float chipY = (headerH - chipS) * 0.5f;
+
+            g.setColour (theme::accent);
+            g.fillRoundedRectangle (chipX, chipY, chipS, chipS, 6.0f);
+
+            // Open circular arc — a "loop" mark.
+            juce::Path arc;
+            arc.addCentredArc (chipX + chipS * 0.5f, chipY + chipS * 0.5f,
+                               6.0f, 6.0f, 0.0f,
+                               0.6f, juce::MathConstants<float>::twoPi - 0.6f, true);
+            g.setColour (theme::background);
+            g.strokePath (arc, juce::PathStrokeType (2.4f, juce::PathStrokeType::curved,
+                                                     juce::PathStrokeType::rounded));
+
+            auto title = juce::Font (17.0f, juce::Font::bold);
+            title.setExtraKerningFactor (0.06f);
+            g.setFont (title);
+
+            const int textX = (int) (chipX + chipS) + 10;
+            const int loopW = title.getStringWidth ("LOOP");
+            g.setColour (theme::textPrimary);
+            g.drawText ("LOOP",   textX, 0, loopW + 2, headerH, juce::Justification::centredLeft);
+            g.setColour (theme::accent);
+            g.drawText ("FINDER", textX + loopW + 1, 0, 120, headerH, juce::Justification::centredLeft);
+        }
+
+        // ---- Footer bar (above the keyboard) ----
         const int footerY = getHeight() - keyboardH - footerH;
-        g.setColour (theme::surface);
-        g.fillRect (juce::Rectangle<int> (0, footerY, getWidth(), footerH));
+        {
+            juce::ColourGradient grad (theme::surface.brighter (0.04f), 0.0f, (float) footerY,
+                                       theme::surface.darker (0.06f),   0.0f, (float) (footerY + footerH),
+                                       false);
+            g.setGradientFill (grad);
+            g.fillRect (juce::Rectangle<int> (0, footerY, getWidth(), footerH));
+        }
         g.setColour (theme::border);
         g.drawHorizontalLine (footerY, 0.0f, (float) getWidth());
 
-        // Keyboard background separator
+        // Keyboard well — darker, with an inner shadow at the top for depth.
+        g.setColour (theme::backgroundDeep);
+        g.fillRect (juce::Rectangle<int> (0, getHeight() - keyboardH, getWidth(), keyboardH));
+        {
+            const float ky = (float) (getHeight() - keyboardH);
+            juce::ColourGradient shadow (juce::Colours::black.withAlpha (0.30f), 0.0f, ky,
+                                         juce::Colours::transparentBlack, 0.0f, ky + 9.0f, false);
+            g.setGradientFill (shadow);
+            g.fillRect (juce::Rectangle<int> (0, (int) ky, getWidth(), 9));
+        }
+        g.setColour (theme::border);
         g.drawHorizontalLine (getHeight() - keyboardH, 0.0f, (float) getWidth());
     }
 
     void LoopFinderEditor::resized()
     {
-        constexpr int headerH   = 40;
-        constexpr int footerH   = 84;
-        constexpr int keyboardH = 84;
-        constexpr int rightW    = 240;
-
         auto bounds = getLocalBounds();
 
         // Header
-        auto header = bounds.removeFromTop (headerH).reduced (10, 6);
-        titleLabel.setBounds (header.removeFromLeft (160));
+        auto header = bounds.removeFromTop (headerH).reduced (12, 10);
+        analyzeBtn.setBounds (header.removeFromRight (96));
+        header.removeFromRight (8);
+        loadBtn   .setBounds (header.removeFromRight (88));
+
+        header.removeFromLeft (168);             // wordmark (painted)
+        keyBadge.setBounds (header.removeFromLeft (118));
         header.removeFromLeft (8);
-        analyzeBtn.setBounds (header.removeFromRight (90).reduced (0, 2));
-        loadBtn   .setBounds (header.removeFromRight (90).reduced (0, 2));
+        tuneBtn.setBounds  (header.removeFromLeft (86));
 
         // Bottom: on-screen MIDI keyboard.
-        keyboard.setBounds (bounds.removeFromBottom (keyboardH).reduced (8, 6));
+        keyboard.setBounds (bounds.removeFromBottom (keyboardH).reduced (10, 8));
 
         // Footer
-        auto footer = bounds.removeFromBottom (footerH).reduced (10, 8);
+        auto footer = bounds.removeFromBottom (footerH).reduced (12, 9);
 
         // Row 1 — transport
-        auto row1 = footer.removeFromTop (24);
-        playBtn .setBounds (row1.removeFromLeft (80));
-        row1.removeFromLeft (4);
-        stopBtn .setBounds (row1.removeFromLeft (72));
-        row1.removeFromLeft (4);
+        auto row1 = footer.removeFromTop (26);
+        playBtn .setBounds (row1.removeFromLeft (86));
+        row1.removeFromLeft (6);
+        stopBtn .setBounds (row1.removeFromLeft (74));
+        row1.removeFromLeft (14);
         midiFromStartBtn.setBounds (row1.removeFromLeft (118));
-        row1.removeFromLeft (8);
-        loopBtn .setBounds (row1.removeFromLeft (56));
-        row1.removeFromLeft (8);
-        volumeLabel.setBounds  (row1.removeFromLeft (28));
+        row1.removeFromLeft (10);
+        loopBtn .setBounds (row1.removeFromLeft (68));
+        row1.removeFromLeft (14);
+        volumeLabel.setBounds  (row1.removeFromLeft (26));
         volumeSlider.setBounds (row1);
 
-        // Row 2 — root note
-        footer.removeFromTop (4);
+        // Row 2 — root note + tune
+        footer.removeFromTop (5);
         auto row2 = footer.removeFromTop (22);
-        rootLabel.setBounds      (row2.removeFromLeft (40));
-        rootValueLabel.setBounds (row2.removeFromRight (90));
-        row2.removeFromRight (6);
+        rootLabel.setBounds  (row2.removeFromLeft (26));
+        tuneSlider.setBounds (row2.removeFromRight (190));
+        tuneLabel.setBounds  (row2.removeFromRight (34));
+        row2.removeFromRight (10);
+        rootValueLabel.setBounds (row2.removeFromRight (78));
+        row2.removeFromRight (8);
         rootSlider.setBounds (row2);
 
         // Row 3 — file info / messages
+        footer.removeFromTop (3);
         auto row3 = footer;
         fileInfoLabel.setBounds (row3.removeFromLeft (row3.getWidth() / 2));
         messageLabel.setBounds  (row3);
 
-        progressBar.setBounds (juce::Rectangle<int> (10,
-                                                     getHeight() - keyboardH - footerH - 6,
-                                                     getWidth() - 20, 4));
+        progressBar.setBounds (juce::Rectangle<int> (12,
+                                                     getHeight() - keyboardH - footerH - 7,
+                                                     getWidth() - 24, 4));
 
         // Main split: waveform | region list
         regionList.setBounds (bounds.removeFromRight (rightW));
@@ -250,14 +347,9 @@ namespace lf
         if (files.isEmpty()) return;
         const juce::File file (files[0]);
         if (! proc.loadFile (file))
-        {
-            messageLabel.setText (proc.getFileManager().getMetadata().lastError,
-                                  juce::dontSendNotification);
-        }
+            showMessage (proc.getFileManager().getMetadata().lastError, theme::warning);
         else
-        {
-            messageLabel.setText ({}, juce::dontSendNotification);
-        }
+            showHint();
     }
 
     // -------------------------------------------------------------------------
@@ -267,6 +359,7 @@ namespace lf
     {
         updateFileInfo();
         updateTransportEnablement();
+        keyBadge.setKeyText (proc.getDetectedKeyText());
         waveform.refreshSource();
     }
 
@@ -279,11 +372,26 @@ namespace lf
         {
             const auto regs = proc.getRegions();
             if (regs.empty() && proc.getFileManager().isLoaded())
-                messageLabel.setText (
-                    "No seamless loop points found — try a longer sustained section.",
-                    juce::dontSendNotification);
+            {
+                if (proc.lastAnalysisUsedRange())
+                    showMessage ("No clean loop found in the highlighted area - widen it or "
+                                 "click the waveform to clear it.",
+                                 theme::warning);
+                else
+                    showMessage ("No seamless loop points found - try a longer sustained section.",
+                                 theme::warning);
+            }
+            else if (! regs.empty())
+            {
+                showMessage (juce::String ((int) regs.size())
+                             + (regs.size() == 1 ? " loop found." : " loops found.")
+                             + (proc.lastAnalysisUsedRange() ? " (searched highlighted area)" : ""),
+                             theme::success);
+            }
             else
-                messageLabel.setText ({}, juce::dontSendNotification);
+            {
+                showHint();
+            }
         }
     }
 
@@ -321,10 +429,10 @@ namespace lf
             const auto file = fc.getResult();
             if (file == juce::File()) return;
             if (! safe->proc.loadFile (file))
-                safe->messageLabel.setText (safe->proc.getFileManager().getMetadata().lastError,
-                                            juce::dontSendNotification);
+                safe->showMessage (safe->proc.getFileManager().getMetadata().lastError,
+                                   theme::warning);
             else
-                safe->messageLabel.setText ({}, juce::dontSendNotification);
+                safe->showHint();
         });
     }
 
@@ -332,10 +440,11 @@ namespace lf
     {
         if (! proc.getFileManager().isLoaded())
         {
-            messageLabel.setText ("Load an audio file first.", juce::dontSendNotification);
+            showMessage ("Load an audio file first.", theme::warning);
             return;
         }
-        messageLabel.setText ("Analysing…", juce::dontSendNotification);
+        showMessage (proc.hasSearchRange() ? "Analysing highlighted area..." : "Analysing...",
+                     theme::textSecondary);
         progressBar.setVisible (true);
         proc.startAnalysis();
     }
@@ -361,23 +470,45 @@ namespace lf
         regionList.refresh();
     }
 
+    void LoopFinderEditor::searchRangeChanged (int startSample, int endSample)
+    {
+        proc.setSearchRange (startSample, endSample);
+
+        if (proc.hasSearchRange())
+        {
+            const double sr = proc.getFileManager().getMetadata().sampleRate > 0.0
+                                ? proc.getFileManager().getMetadata().sampleRate : 44100.0;
+            const double s0 = startSample / sr;
+            const double s1 = endSample   / sr;
+            showMessage ("Search limited to " + juce::String (s0, 2) + "s - "
+                         + juce::String (s1, 2) + "s. Press Analyze.",
+                         theme::textSecondary);
+            analyzeBtn.setButtonText ("Analyze Area");
+        }
+        else
+        {
+            analyzeBtn.setButtonText ("Analyze");
+            showHint();
+        }
+    }
+
     void LoopFinderEditor::updateFileInfo()
     {
         const auto& m = proc.getFileManager().getMetadata();
         if (! m.isLoaded)
         {
-            fileInfoLabel.setText ("File: (none loaded)", juce::dontSendNotification);
+            fileInfoLabel.setText ("No file loaded", juce::dontSendNotification);
             return;
         }
-        const juce::String s = "File: " + m.filename
-                            + "  •  " + juce::String ((int) m.sampleRate) + " Hz"
-                            + "  •  " + juce::String (m.lengthSeconds, 2) + " s"
-                            + "  •  " + juce::String (m.bitDepth) + "-bit";
+        const juce::String s = m.filename
+                            + "  |  " + juce::String ((int) m.sampleRate) + " Hz"
+                            + "  |  " + juce::String (m.lengthSeconds, 2) + " s"
+                            + "  |  " + juce::String (m.bitDepth) + "-bit";
         fileInfoLabel.setText (s, juce::dontSendNotification);
 
         if (m.isMissing)
-            messageLabel.setText ("Linked file is missing — please re-link via Load File.",
-                                  juce::dontSendNotification);
+            showMessage ("Linked file is missing - please re-link via Load File.",
+                         theme::warning);
     }
 
     void LoopFinderEditor::updateTransportEnablement()
@@ -388,5 +519,22 @@ namespace lf
         midiFromStartBtn.setEnabled (hasFile);
         loopBtn.setToggleState (proc.getPlayback().isLoopEnabled(), juce::dontSendNotification);
         analyzeBtn.setEnabled (hasFile && ! proc.isAnalysing());
+        tuneBtn.setEnabled (proc.hasDetectedKey());
+        tuneSlider.setEnabled (hasFile);
+    }
+
+    void LoopFinderEditor::showMessage (const juce::String& text, juce::Colour colour)
+    {
+        messageLabel.setColour (juce::Label::textColourId, colour);
+        messageLabel.setText (text, juce::dontSendNotification);
+    }
+
+    void LoopFinderEditor::showHint()
+    {
+        if (proc.getFileManager().isLoaded())
+            showMessage ("Tip: drag on the waveform to choose where to search for loops.",
+                         theme::textDim);
+        else
+            showMessage ({}, theme::textSecondary);
     }
 }

@@ -129,6 +129,8 @@ target_sources(LoopFinder PRIVATE
     Source/LoopDetector.cpp
     Source/LoopDetector.h
     Source/LoopRegion.h
+    Source/PitchDetector.cpp
+    Source/PitchDetector.h
     Source/AudioFileManager.cpp
     Source/AudioFileManager.h
     Source/WaveformDisplay.cpp
@@ -139,6 +141,7 @@ target_sources(LoopFinder PRIVATE
     Source/PlaybackEngine.h
     Source/LoopExporter.cpp
     Source/LoopExporter.h
+    Source/LookAndFeel.h
     Source/Theme.h
 )
 

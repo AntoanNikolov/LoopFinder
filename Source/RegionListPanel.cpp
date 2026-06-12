@@ -1,6 +1,8 @@
 #include "RegionListPanel.h"
 #include "PluginProcessor.h"
 
+#include <cmath>
+
 namespace lf
 {
     // =========================================================================
@@ -26,55 +28,70 @@ namespace lf
         // ---------------------------------------------------------------------
         void paint (juce::Graphics& g) override
         {
-            const auto bounds = getLocalBounds();
-            g.setColour (selected ? theme::surface.brighter (0.15f) : theme::surface);
-            g.fillRoundedRectangle (bounds.toFloat().reduced (4.0f, 3.0f),
-                                    (float) theme::cornerRadius);
-            g.setColour (selected ? theme::accent : theme::border);
-            g.drawRoundedRectangle (bounds.toFloat().reduced (4.0f, 3.0f),
-                                    (float) theme::cornerRadius, 1.0f);
+            const auto card = getLocalBounds().toFloat().reduced (4.0f, 3.0f);
+            const auto col  = theme::regionColour (index);
 
-            const auto col = theme::regionColour (index);
+            auto bg = selected ? theme::surfaceRaised.brighter (0.08f)
+                               : (hovered ? theme::surfaceRaised.brighter (0.03f)
+                                          : theme::surfaceRaised);
+            g.setColour (bg);
+            g.fillRoundedRectangle (card, (float) theme::cornerRadius);
+            g.setColour (selected ? col : theme::border);
+            g.drawRoundedRectangle (card, (float) theme::cornerRadius, selected ? 1.4f : 1.0f);
 
-            // Color swatch
-            const auto swatch = juce::Rectangle<int> (12, bounds.getY() + 10, 14, 14);
+            // Colour spine on the left edge.
             g.setColour (col);
-            g.fillRoundedRectangle (swatch.toFloat(), 3.0f);
+            g.fillRoundedRectangle (card.getX() + 3.0f, card.getY() + 5.0f,
+                                    3.5f, card.getHeight() - 10.0f, 1.75f);
+
+            const int left = (int) card.getX() + 14;
+            const int top  = (int) card.getY();
 
             g.setColour (theme::textPrimary);
-            g.setFont (theme::body());
-            g.drawText (juce::String (index + 1),
-                        juce::Rectangle<int> (32, bounds.getY() + 6, 24, 18),
+            g.setFont (juce::Font (12.5f, juce::Font::bold));
+            g.drawText ("Loop " + juce::String (index + 1),
+                        juce::Rectangle<int> (left, top + 5, 70, 16),
                         juce::Justification::centredLeft);
 
-            g.setColour (theme::textSecondary);
-            g.setFont (theme::label());
-            g.drawText (juce::String (region.durationMs, 1) + " ms",
-                        juce::Rectangle<int> (60, bounds.getY() + 6, 80, 18),
+            // Match quality, as a percentage.
+            const int pct = (int) std::round (juce::jlimit (0.0f, 1.0f, region.score) * 100.0f);
+            g.setColour (pct >= 95 ? theme::success : theme::textSecondary);
+            g.setFont (theme::mono (10.0f));
+            g.drawText (juce::String (pct) + "% match",
+                        juce::Rectangle<int> (left + 66, top + 5, 76, 16),
                         juce::Justification::centredLeft);
+
+            // Duration on the right.
+            g.setColour (theme::textSecondary);
+            g.setFont (theme::mono (10.0f));
+            juce::String dur = region.durationMs >= 1000.0f
+                                 ? juce::String (region.durationMs / 1000.0f, 2) + " s"
+                                 : juce::String (region.durationMs, 0) + " ms";
+            if (region.hasCrossfade) dur = "xf - " + dur;
+            g.drawText (dur,
+                        juce::Rectangle<int> ((int) card.getRight() - 92, top + 5, 84, 16),
+                        juce::Justification::centredRight);
 
             // Mini waveform
-            const auto wfArea = juce::Rectangle<int> (60, bounds.getY() + 26,
-                                                     bounds.getWidth() - 24, 22);
+            const auto wfArea = juce::Rectangle<int> (left, top + 26,
+                                                      (int) card.getWidth() - 24, 22);
             drawMiniWave (g, wfArea, col);
-
-            // Crossfade indicator
-            if (region.hasCrossfade)
-            {
-                g.setColour (theme::warning);
-                g.setFont (juce::Font (9.0f));
-                g.drawText ("xfade",
-                            juce::Rectangle<int> (bounds.getRight() - 60, bounds.getY() + 6,
-                                                  44, 14),
-                            juce::Justification::centredRight);
-            }
         }
 
         void resized() override {}
 
         void mouseEnter (const juce::MouseEvent&) override
         {
+            hovered = true;
+            setMouseCursor (juce::MouseCursor::PointingHandCursor);
+            repaint();
             if (callbacks.onHover) callbacks.onHover (index);
+        }
+
+        void mouseExit (const juce::MouseEvent&) override
+        {
+            hovered = false;
+            repaint();
         }
 
         void mouseDown (const juce::MouseEvent&) override
@@ -121,6 +138,7 @@ namespace lf
         const std::vector<float>& monoSamples;
         Callbacks callbacks;
         bool selected { false };
+        bool hovered  { false };
     };
 
     // =========================================================================
@@ -130,9 +148,9 @@ namespace lf
         : processor (proc)
     {
         addAndMakeVisible (titleLabel);
-        titleLabel.setText ("Loop Regions", juce::dontSendNotification);
+        titleLabel.setText ("DETECTED LOOPS", juce::dontSendNotification);
         titleLabel.setFont (theme::heading());
-        titleLabel.setColour (juce::Label::textColourId, theme::textPrimary);
+        titleLabel.setColour (juce::Label::textColourId, theme::textSecondary);
 
         addAndMakeVisible (viewport);
         viewport.setViewedComponent (&listContainer, false);
@@ -161,6 +179,23 @@ namespace lf
 
         g.setColour (theme::border);
         g.drawVerticalLine (0, 0.0f, (float) getHeight());
+
+        // Match the waveform's under-header inner shadow.
+        {
+            juce::ColourGradient shadow (juce::Colours::black.withAlpha (0.25f), 0.0f, 0.0f,
+                                         juce::Colours::transparentBlack, 0.0f, 9.0f, false);
+            g.setGradientFill (shadow);
+            g.fillRect (juce::Rectangle<int> (0, 0, getWidth(), 9));
+        }
+
+        if (rows.empty())
+        {
+            g.setColour (theme::textDim);
+            g.setFont (theme::label());
+            g.drawFittedText ("Press Analyze to detect\nseamless loops",
+                              getLocalBounds().reduced (16).withTrimmedTop (40).withHeight (40),
+                              juce::Justification::centredTop, 2);
+        }
     }
 
     void RegionListPanel::resized()

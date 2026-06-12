@@ -116,11 +116,24 @@ namespace lf
         const int maxLoop  = std::max (minLoop + 1, secondsToSamples (s.maxLoopMs));
         const int dedupe   = std::max (1, secondsToSamples (s.dedupeWindowMs));
 
-        const int boundary = static_cast<int> (std::floor (static_cast<double> (numSamples)
-                                                           * std::clamp (s.boundaryFraction,
-                                                                         0.0f, 0.49f)));
-        const int searchStart = boundary;
-        const int searchEnd   = numSamples - boundary;
+        int searchStart = 0;
+        int searchEnd   = 0;
+
+        if (s.hasSearchRange())
+        {
+            // User highlighted a section — search only inside it (no dead zone).
+            searchStart = std::clamp (s.searchStartSample, 0, numSamples);
+            searchEnd   = std::clamp (s.searchEndSample,   searchStart, numSamples);
+        }
+        else
+        {
+            const int boundary = static_cast<int> (std::floor (static_cast<double> (numSamples)
+                                                               * std::clamp (s.boundaryFraction,
+                                                                             0.0f, 0.49f)));
+            searchStart = boundary;
+            searchEnd   = numSamples - boundary;
+        }
+
         if (searchEnd - searchStart < minLoop + 4)
             return results;
 
